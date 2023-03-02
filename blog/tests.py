@@ -141,46 +141,42 @@ class PostTestCase(TestCase):
         Comment.objects.create(body="test3", author=self.user, post=post)
         self.assertEqual(post.comments_count, 3)
 
+@pytest.mark.django_db
+class UserTagTestCase(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="testpassword")
+        self.users = [User.objects.create_user(username=f"test{i}", password="testpassword")
+                       for i in range(6)]
+        self.post = Post.objects.create(title="testpost", body="testpost", author=self.user)
+
     def test_post_tagged_count(self):
         #Check initial value of tagged_count
-        Post.objects.create(title="test1", body="test1", author=self.user)
-        post = Post.objects.get(title="test1")
-        post.save()
-        self.assertEqual(post.tagged_count, 0)
+        self.assertEqual(self.post.tagged_count, 0)
 
-        #Creating and tagging 6 users
-        for i in range(6):
-            user = User.objects.create_user(username=f"testuser{i}", password="testpassword")
-            UserTag.objects.create(user=user, post=post)
+        #Creating and tagging users
+        for user in self.users:
+            UserTag.objects.create(user=user, post=self.post)
         
         #Check if tagged_count is updated
-        post.refresh_from_db()
-        self.assertEqual(post.tagged_count, 6)
+        self.assertEqual(self.post.tagged_count, 6)
 
         #Delete a user
-        user = User.objects.get(username="testuser1")
-        user.delete()
+        self.users[0].delete()
 
         #Check if tagged_count is updated
-        post.refresh_from_db()
-        self.assertEqual(post.tagged_count, 5)
+        self.assertEqual(self.post.tagged_count, 5)
 
     def test_post_last_tag_date(self):
         #Check initial value of last_tag_date
-        Post.objects.create(title="test1", body="test1", author=self.user)
-        post = Post.objects.get(title="test1")
-        post.save()
-        self.assertEqual(post.last_tag_date, None)
+        self.assertEqual(self.post.last_tag_date, None)
 
-        #Creating and tagging 6 users
-        for i in range(6):
-            user = User.objects.create_user(username=f"testuser{i}", password="testpassword")
-            UserTag.objects.create(user=user, post=post)
+        #Creating and tagging users
+        for user in self.users:
+            UserTag.objects.create(user=user, post=self.post)
         
         #Check if last_tag_date is updated
-        post.refresh_from_db()
-        last_tag_date = post.usertag_set.last().created_at if post.usertag_set.exists() else None
-        self.assertEqual(post.last_tag_date, last_tag_date)
+        self.assertEqual(self.post.last_tag_date, self.post.usertag_set.last().created_at)
 
 @pytest.mark.django_db
 class CommentTestCase(TestCase):
