@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db.utils import DataError
 from django.db.utils import IntegrityError
+from django.db import transaction
 from .models import Post
 import pytest
 
@@ -19,17 +20,33 @@ class PostTestCase(TestCase):
 
     def test_post_null_fields(self):
         testuser = User.objects.create_user(username="testing", password="testpassword")
+        
         with self.assertRaises(IntegrityError):
-            Post.objects.create(title=None, body=None,author=testuser).full_clean()
-            Post.objects.create(title="test1", body=None,author=testuser).full_clean()
-            Post.objects.create(title=None, body="test2",author=testuser).full_clean()
-            Post.objects.create(title=None, body="test2",author=None).full_clean()
+            with transaction.atomic():
+                Post.objects.create(title=None, body=None,author=None).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Post.objects.create(title=None, body=None,author=testuser).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Post.objects.create(title="test1", body=None,author=testuser).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Post.objects.create(title=None, body="test2",author=testuser).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Post.objects.create(title="test3", body="test3",author=None).full_clean()
 
     def test_post_empty_fields(self):
         testuser = User.objects.create_user(username="testing", password="testpassword")
+
         with self.assertRaises(ValidationError):
             Post.objects.create(title="", body="",author=testuser).full_clean()
+        
+        with self.assertRaises(ValidationError):
             Post.objects.create(title="test1", body="",author=testuser).full_clean()
+        
+        with self.assertRaises(ValidationError):
             Post.objects.create(title="", body="test2",author=testuser).full_clean()
 
     def test_post_user_delete(self):
