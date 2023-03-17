@@ -2,6 +2,14 @@ from django.urls import path
 
 from . import views
 
+app_name = 'blog'
 urlpatterns = [
+    #/blog/
     path("", views.index, name='index'),
+    #/blog/signup
+    path("signup", views.signup, name='signup'),
+    #/blog/login
+    path("login", views.MyLoginView.as_view(), name='login'),
+    #/blog/menu
+    path("menu", views.index, name='menu'),
 ]
