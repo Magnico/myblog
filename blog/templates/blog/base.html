@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% block tittle %}
+        <title>Tittle</title>
+    {% endblock tittle %}
+
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'blog/style.css' %}">
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="{% url 'blog:index' %}">Home</a></li>
+            {% if user.is_authenticated %}
+                <li><a href="{% url 'blog:logout' %}">Log Out</a></li>
+            {% else %}
+                <li><a href="{% url 'blog:login' %}">Log In</a></li>
+                <li><a href="{% url 'blog:signup' %}">Sign Up</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% if user.is_authenticated %}
+        <h1>Welcome {{ user.username }}</h1>
+    {% endif %}
+    {% block content %}
+    {% endblock content %}
+</body>
+</html>
