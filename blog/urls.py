@@ -7,9 +7,9 @@ urlpatterns = [
     #/blog/
     path("", views.index, name='index'),
     #/blog/signup
-    path("signup", views.signup, name='signup'),
+    path("signup", views.signUp, name='signup'),
     #/blog/login
     path("login", views.MyLoginView.as_view(), name='login'),
-    #/blog/menu
-    path("menu", views.index, name='menu'),
+    #/blog/logout
+    path("logout", views.logOut, name='logout'),
 ]

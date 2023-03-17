@@ -1,6 +1,6 @@
 from django.shortcuts import render
-from django.http import HttpResponse
 from django.contrib.auth.views import LoginView
+from django.contrib.auth import logout
 from django.contrib import messages
 from .forms import SignUpForm
 from django.shortcuts import redirect
@@ -9,22 +9,25 @@ from .models import Post
 
 # Create your views here.
 def index(request):
-    return render(request, 'blog/index.html', {
+    return render(request, 'blog/base_index.html', {
         "posts": Post.objects.all().count(),
     })
 
+
 class MyLoginView(LoginView):
-    template_name = 'blog/login.html'
+    template_name = 'blog/base_form.html'
     redirect_authenticated_user = True
 
     def get_success_url(self):
         return reverse_lazy('blog:index')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['actionText'] = 'Log In'
+        return context
 
 
-
-
-
-def signup(request):
+def signUp(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
@@ -35,10 +38,10 @@ def signup(request):
         else:
             messages.error(request, 'Invalid registration data')
     form = SignUpForm()
-    return render(request, 'blog/signup.html', {'form': form})
+    return render(request, 'blog/base_form.html', {'form': form, 'actionText': 'Sign Up'})
 
-def login(request):
-    return render(request, 'blog/login.html')
-
-def menu(request):
-    return render(request, 'blog/menu.html')
+def logOut(request):
+    logout(request)
+    messages.success(request, 'Logged out successfully')
+    return redirect('blog:login')
+    
