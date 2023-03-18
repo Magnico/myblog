@@ -1,6 +1,8 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.db.utils import DataError
 from django.db.utils import IntegrityError
 from django.db import transaction
@@ -56,3 +58,59 @@ class PostTestCase(TestCase):
         Post.objects.create(title="test3", body="test3", author=user)
         user.delete()
         self.assertEqual(Post.objects.count(), 0)
+
+@pytest.mark.django_db
+class UserLogSignTest(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="testuser2", password="testpassword2")
+
+    def test_user_signup(self):
+        c = Client()
+        response = c.get(reverse('blog:signup'))
+
+        #Check if page loads
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(reverse('blog:signup'),{
+            'username':'testuser',
+            'email':'testing@this.user',
+            'password1':'thisisatestpasswordforuser',
+            'password2':'thisisatestpasswordforuser'}
+            )
+        
+        #Check if redirect to login page
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('blog:login'))
+
+        #Check if user was created
+        user = get_object_or_404(User, username='testuser')
+        self.assertEqual(user.email, 'testing@this.user')
+
+    def test_user_login_logout(self):
+        #Check login page loads
+        response = self.client.get(reverse('blog:login'))
+        self.assertEqual(response.status_code, 200)
+
+        #Check default user is created
+        self.assertEquals(User.objects.count(), 1)
+
+        response = self.client.post(reverse('blog:login'),{
+            'username': 'testuser2',
+            'password': 'testpassword2'
+        })
+
+        #Check if redirect to index page
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('blog:index'))
+
+        #Check if user is logged in
+        self.assertTrue(self.client.session.get('_auth_user_id'))
+
+        response = self.client.get(reverse('blog:logout'))
+
+        #Check if redirect to index page
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('blog:login'))
+
+        #Check if user is logged out
+        self.assertFalse(self.client.session.get('_auth_user_id'))
