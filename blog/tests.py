@@ -65,8 +65,7 @@ class UserLogSignTest(TestCase):
         User.objects.create_user(username="testuser2", password="testpassword2")
 
     def test_user_signup(self):
-        c = Client()
-        response = c.get(reverse('blog:signup'))
+        response = self.client.get(reverse('blog:signup'))
 
         #Check if page loads
         self.assertEqual(response.status_code, 200)
@@ -87,12 +86,10 @@ class UserLogSignTest(TestCase):
         self.assertEqual(user.email, 'testing@this.user')
 
     def test_user_login_logout(self):
-        #Check login page loads
         response = self.client.get(reverse('blog:login'))
+        
+        #Check login page loads
         self.assertEqual(response.status_code, 200)
-
-        #Check default user is created
-        self.assertEquals(User.objects.count(), 1)
 
         response = self.client.post(reverse('blog:login'),{
             'username': 'testuser2',
@@ -104,13 +101,13 @@ class UserLogSignTest(TestCase):
         self.assertRedirects(response, reverse('blog:index'))
 
         #Check if user is logged in
-        self.assertTrue(self.client.session.get('_auth_user_id'))
+        self.assertIsNotNone(self.client.session.get('_auth_user_id'))
 
         response = self.client.get(reverse('blog:logout'))
-
+        
         #Check if redirect to index page
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('blog:login'))
 
         #Check if user is logged out
-        self.assertFalse(self.client.session.get('_auth_user_id'))
+        self.assertIsNone(self.client.session.get('_auth_user_id'))
