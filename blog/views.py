@@ -1,14 +1,15 @@
-from django.shortcuts import render
+from rest_framework.generics import GenericAPIView
+from rest_framework.mixins import ListModelMixin
 from django.contrib.auth.views import LoginView
+from blog.api.serializers import PostSerializer
 from django.contrib.auth import logout
-from django.contrib import messages
-from .forms import SignUpForm
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.shortcuts import render
+from django.contrib import messages
+from .forms import SignUpForm
 from .models import Post
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from blog.api.serializers import PostSerializer
+
 
 # Create your views here.
 def index(request):
@@ -29,6 +30,13 @@ class MyLoginView(LoginView):
         context['actionText'] = 'Log In'
         return context
 
+#inherit from GenericAPIView and ListLodelMixin
+class PostViewSet(GenericAPIView, ListModelMixin):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
 
 def signUp(request):
     if request.method == 'POST':
@@ -47,9 +55,3 @@ def logOut(request):
     logout(request)
     messages.success(request, 'Logged out successfully')
     return redirect('blog:login')
-    
-@api_view(['GET'])
-def post_api_all(request):
-    posts = Post.objects.all()
-    serializer = PostSerializer(posts, many=True)
-    return Response(serializer.data)
