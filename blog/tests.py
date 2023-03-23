@@ -121,7 +121,7 @@ class PostAPITest(APITestCase):
 
     def test_post_get_api(self):
         #Getting the response from the API
-        response = self.client.get(reverse('blog:post_api_all'))
+        response = self.client.get(reverse('blog:post_list'))
 
         #Checking if the response is OK
         self.assertEqual(response.status_code, 200)
@@ -136,7 +136,7 @@ class PostAPITest(APITestCase):
         Post.objects.create(title="test3", body="test3", author=self.user)
 
         #Getting the response from the API
-        response = self.client.get(reverse('blog:post_api_all'))
+        response = self.client.get(reverse('blog:post_list'))
         
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
