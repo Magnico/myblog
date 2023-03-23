@@ -119,7 +119,9 @@ class PostAPITest(APITestCase):
         Post.objects.create(title="test", body="test", author=User.objects.get(username="testuser"))
         self.user = User.objects.get(username="testuser")
 
-    def test_post_get_api(self):
+    def test_post_list(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
         #Getting the response from the API
         response = self.client.get(reverse('blog:post_list'))
 
@@ -144,3 +146,22 @@ class PostAPITest(APITestCase):
         #Checking if the response is the same as the database
         count = Post.objects.count()
         self.assertEqual(count, len(response.data))
+
+    def test_post_create(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+        #Getting the response from the API
+        response = self.client.post(reverse('blog:post_list'),{
+            'title': 'testing',
+            'body': 'testing'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 201)
+
+        #Checking if the response is the same as the database
+        post = Post.objects.get(pk=2)
+        self.assertEqual(post.title, response.data['title'])
+        self.assertEqual(post.body, response.data['body'])
+        self.assertEqual(post.author.username, response.data['author'])
