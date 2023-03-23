@@ -1,4 +1,5 @@
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.mixins import CreateModelMixin
 from rest_framework.generics import GenericAPIView
 from rest_framework.mixins import ListModelMixin
 from django.contrib.auth.views import LoginView
@@ -9,7 +10,6 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.contrib import messages
-from rest_framework import status
 from .forms import SignUpForm
 from .models import Post
 
@@ -33,8 +33,8 @@ class MyLoginView(LoginView):
         context['actionText'] = 'Log In'
         return context
 
-#inherit from GenericAPIView and ListLodelMixin
-class PostViewSet(GenericAPIView, ListModelMixin):
+
+class PostViewSet(GenericAPIView, ListModelMixin, CreateModelMixin):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
@@ -43,10 +43,7 @@ class PostViewSet(GenericAPIView, ListModelMixin):
         return self.list(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(author=request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return self.create(request, *args, **kwargs)
                            
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
