@@ -1,13 +1,12 @@
 from django.db.utils import DataError, IntegrityError
 from django.core.exceptions import ValidationError
-from rest_framework.test import APIRequestFactory
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
+from rest_framework.test import APITestCase
 from django.db import transaction
 from django.test import TestCase
 from django.urls import reverse
 from .models import Post
-from .views import post_api_all
 import pytest
 
 # Create your tests here.
@@ -114,17 +113,15 @@ class UserLogSignTest(TestCase):
         self.assertIsNone(self.client.session.get('_auth_user_id'))
 
 @pytest.mark.django_db
-class PostAPITest(TestCase):
+class PostAPITest(APITestCase):
     def setUp(self):
         User.objects.create_user(username="testuser", password="testpassword")
         Post.objects.create(title="test", body="test", author=User.objects.get(username="testuser"))
         self.user = User.objects.get(username="testuser")
 
     def test_post_get_api(self):
-        factory = APIRequestFactory()
-        #Creating a request and getting the response
-        request = factory.get(reverse('blog:post_api_all'))
-        response = post_api_all(request)
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post_api_all'))
 
         #Checking if the response is OK
         self.assertEqual(response.status_code, 200)
@@ -138,9 +135,8 @@ class PostAPITest(TestCase):
         Post.objects.create(title="test2", body="test2", author=self.user)
         Post.objects.create(title="test3", body="test3", author=self.user)
 
-        #Creating a request and getting the response
-        request = factory.get(reverse('blog:post_api_all'))
-        response = post_api_all(request)
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post_api_all'))
         
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
