@@ -12,4 +12,6 @@ urlpatterns = [
     path("login", views.MyLoginView.as_view(), name='login'),
     #/blog/logout
     path("logout", views.logOut, name='logout'),
+    #/blog/api/post
+    path("api/post", views.post_api_all, name='post_api_all'),
 ]
