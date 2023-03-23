@@ -6,6 +6,9 @@ from .forms import SignUpForm
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from .models import Post
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from blog.api.serializers import PostSerializer
 
 # Create your views here.
 def index(request):
@@ -45,3 +48,8 @@ def logOut(request):
     messages.success(request, 'Logged out successfully')
     return redirect('blog:login')
     
+@api_view(['GET'])
+def post_api_all(request):
+    posts = Post.objects.all()
+    serializer = PostSerializer(posts, many=True)
+    return Response(serializer.data)
