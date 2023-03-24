@@ -165,3 +165,60 @@ class PostAPITest(APITestCase):
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
+    
+    def test_post_retrieve(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+        #Getting the pk of the post
+        post = Post.objects.get();
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post_detail', kwargs={'pk':post.pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        self.assertEqual(post.title, response.data['title'])
+        self.assertEqual(post.body, response.data['body'])
+        self.assertEqual(post.author.username, response.data['author'])
+    
+    def test_post_patch(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+        #Getting the pk of the post
+        post = Post.objects.get();
+
+        #Getting the response from the API
+        response = self.client.patch(reverse('blog:post_detail', kwargs={'pk':post.pk}),{
+            'title': 'testing',
+            'body': 'testing'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the databaset
+        post = Post.objects.get(pk=post.pk);
+        self.assertEqual(post.title, response.data['title'])
+        self.assertEqual(post.body, response.data['body'])
+        self.assertEqual(post.author.username, response.data['author'])
+    
+    def test_post_delete(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+        #Getting the pk of the post
+        post = Post.objects.get();
+
+        #Getting the response from the API
+        response = self.client.delete(reverse('blog:post_detail', kwargs={'pk':post.pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 204)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.count()
+        self.assertEqual(count, 0)
