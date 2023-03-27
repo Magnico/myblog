@@ -1,10 +1,9 @@
+from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, UpdateModelMixin, DestroyModelMixin
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.mixins import CreateModelMixin
 from rest_framework.generics import GenericAPIView
 from rest_framework.mixins import ListModelMixin
 from django.contrib.auth.views import LoginView
 from blog.api.serializers import PostSerializer
-from rest_framework.response import Response
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -47,6 +46,21 @@ class PostViewSet(GenericAPIView, ListModelMixin, CreateModelMixin):
                            
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+class PostDetailViewSet(GenericAPIView, RetrieveModelMixin, UpdateModelMixin, DestroyModelMixin):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request,*args, **kwargs)
+    
+    def patch(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+    
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
+    
 
 def signUp(request):
     if request.method == 'POST':

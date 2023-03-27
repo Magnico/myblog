@@ -14,4 +14,6 @@ urlpatterns = [
     path("logout", views.logOut, name='logout'),
     #/blog/api/post
     path("api/post", views.PostViewSet.as_view(), name='post_list'),
+    #/blog/api/post/<int:pk>
+    path("api/post/<int:pk>", views.PostDetailViewSet.as_view(), name='post_detail'),
 ]
