@@ -1,8 +1,14 @@
 from django.urls import path
-
+from rest_framework import routers
 from . import views
+from django.conf.urls import include
+
+
 
 app_name = 'blog'
+
+router = routers.DefaultRouter()
+router.register(r'api/post', views.PostViewSet, basename='post')
 urlpatterns = [
     #/blog/
     path("", views.index, name='index'),
@@ -13,7 +19,5 @@ urlpatterns = [
     #/blog/logout
     path("logout", views.logOut, name='logout'),
     #/blog/api/post
-    path("api/post", views.PostViewSet.as_view(), name='post_list'),
-    #/blog/api/post/<int:pk>
-    path("api/post/<int:pk>", views.PostDetailViewSet.as_view(), name='post_detail'),
+    path('', include(router.urls)),
 ]
