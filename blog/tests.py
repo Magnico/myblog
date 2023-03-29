@@ -123,7 +123,7 @@ class PostAPITest(APITestCase):
         #Force authentication
         self.client.force_authenticate(user=self.user)
         #Getting the response from the API
-        response = self.client.get(reverse('blog:post_list'))
+        response = self.client.get(reverse('blog:post-list'))
 
         #Checking if the response is OK
         self.assertEqual(response.status_code, 200)
@@ -138,7 +138,7 @@ class PostAPITest(APITestCase):
         Post.objects.create(title="test3", body="test3", author=self.user)
 
         #Getting the response from the API
-        response = self.client.get(reverse('blog:post_list'))
+        response = self.client.get(reverse('blog:post-list'))
         
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
@@ -152,7 +152,7 @@ class PostAPITest(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         #Getting the response from the API
-        response = self.client.post(reverse('blog:post_list'),{
+        response = self.client.post(reverse('blog:post-list'),{
             'title': 'testing',
             'body': 'testing'
         })
@@ -174,7 +174,7 @@ class PostAPITest(APITestCase):
         post = Post.objects.get();
 
         #Getting the response from the API
-        response = self.client.get(reverse('blog:post_detail', kwargs={'pk':post.pk}))
+        response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
 
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
@@ -192,7 +192,7 @@ class PostAPITest(APITestCase):
         post = Post.objects.get();
 
         #Getting the response from the API
-        response = self.client.patch(reverse('blog:post_detail', kwargs={'pk':post.pk}),{
+        response = self.client.patch(reverse('blog:post-detail', kwargs={'pk':post.pk}),{
             'title': 'testing',
             'body': 'testing'
         })
@@ -214,7 +214,7 @@ class PostAPITest(APITestCase):
         post = Post.objects.get();
 
         #Getting the response from the API
-        response = self.client.delete(reverse('blog:post_detail', kwargs={'pk':post.pk}))
+        response = self.client.delete(reverse('blog:post-detail', kwargs={'pk':post.pk}))
 
         #Checking if response is OK
         self.assertEqual(response.status_code, 204)
