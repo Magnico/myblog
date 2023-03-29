@@ -60,6 +60,44 @@ class PostTestCase(TestCase):
         self.assertEqual(Post.objects.count(), 0)
 
 @pytest.mark.django_db
+class CommentTestCase(TestCase):
+
+    def setUp(self):
+        User.objects.create_user(username="testuser", password="testpassword")
+        self.user = User.objects.get(username="testuser")
+        Post.objects.create(title="test1", body="test1", author=self.user)
+        self.post = Post.objects.get(title="test1")
+
+    def test_comment_character_limit(self):
+        content = "x"*256
+        with self.assertRaises(DataError) as e:
+            Comment.objects.create(body=content, author=self.user, post=self.post).full_clean()
+    
+    def test_comment_null_fields(self):
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Comment.objects.create(body=None, author=self.user, post=self.post).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Comment.objects.create(body="test", author=self.user, post=None).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Comment.objects.create(body=None, author=self.user, post=None).full_clean()    
+
+    def test_comment_empty_fields(self):
+        with self.assertRaises(ValidationError):
+            Comment.objects.create(body="", author=self.user, post=self.post).full_clean()
+    
+    def test_comment_user_delete(self):
+        Comment.objects.create(body="test1", author=self.user, post=self.post)
+        Comment.objects.create(body="test2", author=self.user, post=self.post)
+        Comment.objects.create(body="test3", author=self.user, post=self.post)
+        self.user.delete()
+        for comment in Comment.objects.all():
+            self.assertEqual(comment.author, None)
+        
+        
+@pytest.mark.django_db
 class UserLogSignTest(TestCase):
     def setUp(self):
         User.objects.create_user(username="testuser2", password="testpassword2")
