@@ -74,7 +74,6 @@ class CommentTestCase(TestCase):
 
     def test_comment_character_limit(self):
         content = "x"*256
-        print(len(content))
         with self.assertRaises(DataError):
             Comment.objects.create(body=content, author=self.user, post=self.post).full_clean()
     
@@ -280,8 +279,8 @@ class CommentAPITest(APITestCase):
         #Force authentication
         self.client.force_authenticate(user=self.user)
         #Getting the response from the API
-        response = self.client.get(reverse('blog:comment-list'), kwargs={'post_pk':self.post.pk})
-
+        response = self.client.get(reverse('blog:comment-list'))
+        
         #Checking if the response is OK
         self.assertEqual(response.status_code, 200)
 
@@ -295,7 +294,7 @@ class CommentAPITest(APITestCase):
         Comment.objects.create(body="test3", post=self.post, author=self.user)
 
         #Getting the response from the API
-        response = self.client.get(reverse('blog:comment-list'), kwargs={'post_pk':self.post.pk})
+        response = self.client.get(reverse('blog:comment-list'))
         
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
@@ -320,7 +319,7 @@ class CommentAPITest(APITestCase):
         #Checking if the response is the same as the database
         comment = get_object_or_404(Comment, body="testing")
         self.assertEqual(comment.body, response.data['body'])
-        self.assertEqual(comment.author.username, response.data['author'])
+        self.assertEqual(comment.author.pk, response.data['author'])
     
     def test_comment_retrieve(self):
         #Force authentication
