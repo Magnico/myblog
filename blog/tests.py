@@ -101,8 +101,7 @@ class CommentTestCase(TestCase):
         user.delete()
         for comment in Comment.objects.all():
             self.assertEqual(comment.author, None)
-   
-        
+         
 @pytest.mark.django_db
 class UserLogSignTest(TestCase):
     def setUp(self):
@@ -265,4 +264,106 @@ class PostAPITest(APITestCase):
 
         #Checking if the response is the same as the database
         count = Post.objects.count()
+        self.assertEqual(count, 0)
+
+@pytest.mark.django_db
+class CommentAPITest(APITestCase):
+    def setUp(self):
+        User.objects.create_user(username="testuser", password="testpassword")
+        self.user = User.objects.get(username="testuser")
+        Post.objects.create(title="test", body="test", author=self.user)
+        self.post = Post.objects.get(title="test")
+        Comment.objects.create(body="test", post=self.post, author=self.user)
+        self.comment = Comment.objects.get(body="test")
+
+    def test_comment_list(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:comment-list'), kwargs={'post_pk':self.post.pk})
+
+        #Checking if the response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Comment.objects.count()
+        self.assertEqual(count, response.data['count'])
+
+        #Creating new comments
+        Comment.objects.create(body="test1", post=self.post, author=self.user)
+        Comment.objects.create(body="test2", post=self.post, author=self.user)
+        Comment.objects.create(body="test3", post=self.post, author=self.user)
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:comment-list'), kwargs={'post_pk':self.post.pk})
+        
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Comment.objects.count()
+        self.assertEqual(count, response.data['count'])
+
+    def test_comment_create(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+        #Getting the response from the API
+        response = self.client.post(reverse('blog:comment-list'),{
+            'body': 'testing',
+            'post': self.post.pk
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 201)
+
+        #Checking if the response is the same as the database
+        comment = get_object_or_404(Comment, body="testing")
+        self.assertEqual(comment.body, response.data['body'])
+        self.assertEqual(comment.author.username, response.data['author'])
+    
+    def test_comment_retrieve(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:comment-detail', kwargs={'pk':self.comment.pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        self.assertEqual(self.comment.body, response.data['body'])
+        self.assertEqual(self.comment.author.username, response.data['author'])
+
+    def test_comment_patch(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+        #Getting the response from the API
+        response = self.client.patch(reverse('blog:comment-detail', kwargs={'pk':self.comment.pk}),{
+            'body': 'testing changes'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the databaset
+        comment = Comment.objects.get(pk=self.comment.pk);
+        self.assertEqual(comment.body, response.data['body'])
+        self.assertEqual(comment.author.username, response.data['author'])
+
+    def test_comment_delete(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.user)
+
+        #Getting the response from the API
+        response = self.client.delete(reverse('blog:comment-detail', kwargs={'pk':self.comment.pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 204)
+
+        #Checking if the post is deleted
+        count = Comment.objects.count()
         self.assertEqual(count, 0)
