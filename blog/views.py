@@ -32,7 +32,7 @@ class MyLoginView(LoginView):
 
 
 class PostViewSet(ModelViewSet):
-    queryset = Post.objects.all()
+    queryset = Post.objects.all().order_by('pk')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
                  

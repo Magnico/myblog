@@ -3,10 +3,10 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
+from .models import Post, Comment
 from django.db import transaction
 from django.test import TestCase
 from django.urls import reverse
-from .models import Post
 import pytest
 
 # Create your tests here.
@@ -18,7 +18,11 @@ class PostTestCase(TestCase):
         content = "x"*256
         title = "x"*101
         with self.assertRaises(DataError) as e:
-            Post.objects.create(title=title, body=content, author=testuser).full_clean()
+            with transaction.atomic():
+                Post.objects.create(title=title, body='content', author=testuser).full_clean()
+        with self.assertRaises(DataError) as e:
+            with transaction.atomic():
+                Post.objects.create(title='title', body=content, author=testuser).full_clean()
 
     def test_post_null_fields(self):
         testuser = User.objects.create_user(username="testing", password="testpassword")
@@ -70,7 +74,8 @@ class CommentTestCase(TestCase):
 
     def test_comment_character_limit(self):
         content = "x"*256
-        with self.assertRaises(DataError) as e:
+        print(len(content))
+        with self.assertRaises(DataError):
             Comment.objects.create(body=content, author=self.user, post=self.post).full_clean()
     
     def test_comment_null_fields(self):
@@ -89,13 +94,14 @@ class CommentTestCase(TestCase):
             Comment.objects.create(body="", author=self.user, post=self.post).full_clean()
     
     def test_comment_user_delete(self):
-        Comment.objects.create(body="test1", author=self.user, post=self.post)
-        Comment.objects.create(body="test2", author=self.user, post=self.post)
-        Comment.objects.create(body="test3", author=self.user, post=self.post)
-        self.user.delete()
+        user = User.objects.create_user(username="testuser2", password="testpassword")
+        Comment.objects.create(body="test1", author=user, post=self.post)
+        Comment.objects.create(body="test2", author=user, post=self.post)
+        Comment.objects.create(body="test3", author=user, post=self.post)
+        user.delete()
         for comment in Comment.objects.all():
             self.assertEqual(comment.author, None)
-        
+   
         
 @pytest.mark.django_db
 class UserLogSignTest(TestCase):
@@ -168,7 +174,7 @@ class PostAPITest(APITestCase):
 
         #Checking if the response is the same as the database
         count = Post.objects.count()
-        self.assertEqual(count, len(response.data))
+        self.assertEqual(count, response.data['count'])
 
         #Creating new posts
         Post.objects.create(title="test1", body="test1", author=self.user)
@@ -183,7 +189,7 @@ class PostAPITest(APITestCase):
 
         #Checking if the response is the same as the database
         count = Post.objects.count()
-        self.assertEqual(count, len(response.data))
+        self.assertEqual(count, response.data['count'])
 
     def test_post_create(self):
         #Force authentication
@@ -199,7 +205,7 @@ class PostAPITest(APITestCase):
         self.assertEqual(response.status_code, 201)
 
         #Checking if the response is the same as the database
-        post = Post.objects.get(pk=2)
+        post = get_object_or_404(Post, title="testing")
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
