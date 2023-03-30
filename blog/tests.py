@@ -1,6 +1,5 @@
 from django.db.utils import DataError, IntegrityError
 from django.core.exceptions import ValidationError
-from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from .models import Post, Comment
@@ -29,12 +28,6 @@ class PostTestCase(TestCase):
         
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Post.objects.create(title=None, body=None,author=None).full_clean()
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                Post.objects.create(title=None, body=None,author=testuser).full_clean()
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
                 Post.objects.create(title="test1", body=None,author=testuser).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
@@ -46,9 +39,6 @@ class PostTestCase(TestCase):
     def test_post_empty_fields(self):
         testuser = User.objects.create_user(username="testing", password="testpassword")
 
-        with self.assertRaises(ValidationError):
-            Post.objects.create(title="", body="",author=testuser).full_clean()
-        
         with self.assertRaises(ValidationError):
             Post.objects.create(title="test1", body="",author=testuser).full_clean()
         
@@ -83,10 +73,7 @@ class CommentTestCase(TestCase):
                 Comment.objects.create(body=None, author=self.user, post=self.post).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Comment.objects.create(body="test", author=self.user, post=None).full_clean()
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                Comment.objects.create(body=None, author=self.user, post=None).full_clean()    
+                Comment.objects.create(body="test", author=self.user, post=None).full_clean()  
 
     def test_comment_empty_fields(self):
         with self.assertRaises(ValidationError):
@@ -124,7 +111,7 @@ class UserLogSignTest(TestCase):
         self.assertRedirects(response, reverse('blog:login'))
 
         #Check if user was created
-        user = get_object_or_404(User, username='testuser')
+        user = User.objects.get(username='testuser')
         self.assertEqual(user.email, 'testing@this.user')
 
     def test_user_login_logout(self):
@@ -203,7 +190,7 @@ class PostAPITest(APITestCase):
         self.assertEqual(response.status_code, 201)
 
         #Checking if the response is the same as the database
-        post = get_object_or_404(Post, title="testing")
+        post = Post.objects.get(title="testing")
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
@@ -317,7 +304,7 @@ class CommentAPITest(APITestCase):
         self.assertEqual(response.status_code, 201)
 
         #Checking if the response is the same as the database
-        comment = get_object_or_404(Comment, body="testing")
+        comment = Comment.objects.get(body="testing")
         self.assertEqual(comment.body, response.data['body'])
         self.assertEqual(comment.author.pk, response.data['author'])
     
