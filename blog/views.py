@@ -1,14 +1,14 @@
-from rest_framework.viewsets import ModelViewSet
+from blog.api.serializers import PostSerializer, CommentSerializer, CommentPostSerializer
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
-from blog.api.serializers import PostSerializer
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.contrib import messages
+from .models import Post, Comment
 from .forms import SignUpForm
-from .models import Post
 
 
 # Create your views here.
@@ -32,13 +32,24 @@ class MyLoginView(LoginView):
 
 
 class PostViewSet(ModelViewSet):
-    queryset = Post.objects.all()
+    queryset = Post.objects.all().order_by('pk')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
                  
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
+class CommentViewSet(ModelViewSet):
+    queryset = Comment.objects.all().order_by('pk')
+    permission_classes = [IsAuthenticated]
+                 
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CommentPostSerializer
+        return CommentSerializer
     
 
 def signUp(request):
