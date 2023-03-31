@@ -28,6 +28,12 @@ class PostTestCase(TestCase):
         
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
+                Post.objects.create(title=None, body=None,author=None).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Post.objects.create(title=None, body=None,author=testuser).full_clean()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
                 Post.objects.create(title="test1", body=None,author=testuser).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
@@ -38,6 +44,9 @@ class PostTestCase(TestCase):
 
     def test_post_empty_fields(self):
         testuser = User.objects.create_user(username="testing", password="testpassword")
+        
+        with self.assertRaises(ValidationError):
+            Post.objects.create(title="", body="",author=testuser).full_clean()
 
         with self.assertRaises(ValidationError):
             Post.objects.create(title="test1", body="",author=testuser).full_clean()
