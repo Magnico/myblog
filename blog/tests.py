@@ -2,64 +2,65 @@ from django.db.utils import DataError, IntegrityError
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
+from django.utils import timezone
 from .models import Post, Comment
 from django.db import transaction
 from django.test import TestCase
 from django.urls import reverse
+from datetime import datetime
 import pytest
 
 # Create your tests here.
 @pytest.mark.django_db
 class PostTestCase(TestCase):
 
+    def setUp(self):
+        User.objects.create_user(username="testuser", password="testpassword")
+        self.user = User.objects.get(username="testuser")
+
     def test_post_character_limit(self):
-        testuser = User.objects.create_user(username="testing", password="testpassword")
         content = "x"*256
         title = "x"*101
         with self.assertRaises(DataError) as e:
             with transaction.atomic():
-                Post.objects.create(title=title, body='content', author=testuser).full_clean()
+                Post.objects.create(title=title, body='content', author=self.user).full_clean()
         with self.assertRaises(DataError) as e:
             with transaction.atomic():
-                Post.objects.create(title='title', body=content, author=testuser).full_clean()
+                Post.objects.create(title='title', body=content, author=self.user).full_clean()
 
     def test_post_null_fields(self):
-        testuser = User.objects.create_user(username="testing", password="testpassword")
-        
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 Post.objects.create(title=None, body=None,author=None).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Post.objects.create(title=None, body=None,author=testuser).full_clean()
+                Post.objects.create(title=None, body=None,author=self.user).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Post.objects.create(title="test1", body=None,author=testuser).full_clean()
+                Post.objects.create(title="test1", body=None,author=self.user).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Post.objects.create(title=None, body="test2",author=testuser).full_clean()
+                Post.objects.create(title=None, body="test2",author=self.user).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 Post.objects.create(title="test3", body="test3",author=None).full_clean()
 
     def test_post_empty_fields(self):
-        testuser = User.objects.create_user(username="testing", password="testpassword")
         
         with self.assertRaises(ValidationError):
-            Post.objects.create(title="", body="",author=testuser).full_clean()
+            Post.objects.create(title="", body="",author=self.user).full_clean()
 
         with self.assertRaises(ValidationError):
-            Post.objects.create(title="test1", body="",author=testuser).full_clean()
+            Post.objects.create(title="test1", body="",author=self.user).full_clean()
         
         with self.assertRaises(ValidationError):
-            Post.objects.create(title="", body="test2",author=testuser).full_clean()
+            Post.objects.create(title="", body="test2",author=self.user).full_clean()
 
     def test_post_user_delete(self):
-        user = User.objects.create_user(username="testuser", password="testpassword")
-        Post.objects.create(title="test1", body="test1", author=user)
-        Post.objects.create(title="test2", body="test2", author=user)
-        Post.objects.create(title="test3", body="test3", author=user)
-        user.delete()
+        Post.objects.create(title="test1", body="test1", author=self.user)
+        Post.objects.create(title="test2", body="test2", author=self.user)
+        Post.objects.create(title="test3", body="test3", author=self.user)
+        self.user.delete()
         self.assertEqual(Post.objects.count(), 0)
 
 @pytest.mark.django_db
