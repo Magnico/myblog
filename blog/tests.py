@@ -315,6 +315,8 @@ class PostAPITest(APITestCase):
         #Force authentication
         self.client.force_authenticate(user=self.user)
         
+        image = SimpleUploadedFile("test_img_save.jpg", b"file_content", content_type="image/jpeg")
+
         #Getting the pk of the post
         post = Post.objects.first();
 
@@ -323,6 +325,7 @@ class PostAPITest(APITestCase):
             'title': 'testing',
             'body': 'testing',
             'safe': False,
+            'img': image
         })
 
         #Checking if response is OK
