@@ -8,6 +8,7 @@ from django.db import transaction
 from django.test import TestCase
 from django.conf import settings
 from django.urls import reverse
+from dateutil.parser import parse
 import tempfile
 import pytest
 import shutil
@@ -231,6 +232,7 @@ class UserLogSignTest(TestCase):
 
 @pytest.mark.django_db
 class PostAPITest(APITestCase):
+
     def setUp(self):
         User.objects.create_user(username="testuser", password="testpassword")
         Post.objects.create(title="test", body="test", author=User.objects.get(username="testuser"))
@@ -271,7 +273,8 @@ class PostAPITest(APITestCase):
         #Getting the response from the API
         response = self.client.post(reverse('blog:post-list'),{
             'title': 'testing',
-            'body': 'testing'
+            'body': 'testing',
+            'safe': False,
         })
 
         #Checking if response is OK
@@ -282,6 +285,9 @@ class PostAPITest(APITestCase):
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
+        self.assertEqual(post.safe, response.data['safe'])
+        self.assertEqual(post.img.name,'')
+        self.assertIsNotNone(post.created_at)
     
     def test_post_retrieve(self):
         #Force authentication
@@ -300,18 +306,23 @@ class PostAPITest(APITestCase):
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
+        self.assertEqual(post.safe, response.data['safe'])
+        self.assertEqual(post.img.name, response.data['img'] if response.data['img'] else '')
+        self.assertEqual(post.created_at, parse(response.data['created_at']))
+        self.assertEqual(post.comments_count, response.data['comments_count'])
     
     def test_post_patch(self):
         #Force authentication
         self.client.force_authenticate(user=self.user)
-
+        
         #Getting the pk of the post
-        post = Post.objects.get();
+        post = Post.objects.first();
 
         #Getting the response from the API
         response = self.client.patch(reverse('blog:post-detail', kwargs={'pk':post.pk}),{
             'title': 'testing',
-            'body': 'testing'
+            'body': 'testing',
+            'safe': False,
         })
 
         #Checking if response is OK
@@ -322,6 +333,8 @@ class PostAPITest(APITestCase):
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
+        self.assertEqual(post.safe, response.data['safe'])
+        self.assertEqual(post.img.name, response.data['img'] if response.data['img'] else '')
     
     def test_post_delete(self):
         #Force authentication
@@ -342,6 +355,7 @@ class PostAPITest(APITestCase):
 
 @pytest.mark.django_db
 class CommentAPITest(APITestCase):
+
     def setUp(self):
         User.objects.create_user(username="testuser", password="testpassword")
         self.user = User.objects.get(username="testuser")
@@ -406,10 +420,10 @@ class CommentAPITest(APITestCase):
 
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
-
         #Checking if the response is the same as the database
         self.assertEqual(self.comment.body, response.data['body'])
         self.assertEqual(self.comment.author.username, response.data['author'])
+        self.assertEqual(self.comment.created_at, parse(response.data['created_at']))
 
     def test_comment_patch(self):
         #Force authentication
