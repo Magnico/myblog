@@ -1,16 +1,13 @@
 from django.contrib.auth.models import User
 from django.db import models
 
-def get_upload_path(instance, filename):
-    return 'uploads/images/{}/{}/{}/{}'.format(instance.created_at.year, instance.created_at.month, instance.created_at.day, filename)
-
 # Create your models here.
 class Post(models.Model):
     title = models.CharField(max_length=100,null=False,blank=False)
     body = models.CharField(max_length=255,null=False,blank=False)
     author = models.ForeignKey(User,on_delete=models.CASCADE, null=False)
     created_at = models.DateTimeField(auto_now_add=True,editable=False)
-    img = models.ImageField(upload_to=get_upload_path,null=True,blank=True)
+    img = models.ImageField(upload_to='uploads/images/%Y/%m/%d/',null=True,blank=True)
     safe = models.BooleanField(default=True)
 
     @property
