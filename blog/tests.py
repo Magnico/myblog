@@ -1,14 +1,17 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.utils import DataError, IntegrityError
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
-from django.utils import timezone
 from .models import Post, Comment
 from django.db import transaction
 from django.test import TestCase
+from django.conf import settings
 from django.urls import reverse
-from datetime import datetime
+import tempfile
 import pytest
+import shutil
+import os
 
 # Create your tests here.
 @pytest.mark.django_db
@@ -17,6 +20,11 @@ class PostTestCase(TestCase):
     def setUp(self):
         User.objects.create_user(username="testuser", password="testpassword")
         self.user = User.objects.get(username="testuser")
+        self.media_root = tempfile.mkdtemp()
+        settings.MEDIA_ROOT = self.media_root
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root)
 
     def test_post_character_limit(self):
         content = "x"*256
@@ -62,6 +70,76 @@ class PostTestCase(TestCase):
         Post.objects.create(title="test3", body="test3", author=self.user)
         self.user.delete()
         self.assertEqual(Post.objects.count(), 0)
+    
+    def test_post_img_saved(self):
+        #create an image file
+        img_file = SimpleUploadedFile("test_img_save.jpg", b"file_content", content_type="image/jpeg")
+
+        #Create a post with the image
+        Post.objects.create(title="test1", body="test1", author=self.user, img=img_file)
+        post = Post.objects.get(title="test1")
+
+        #check if the image have the correct path
+        expected_path = f'uploads/images/{post.created_at.year}/{post.created_at.month}/{post.created_at.day}/test_img_save.jpg'
+        self.assertEqual(post.img.name, expected_path)
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+    def test_post_img_delete(self):
+        #create an image file
+        img_file = SimpleUploadedFile("test_delete.jpg", b"file_content", content_type="image/jpeg")
+
+        #Create a post with the image
+        Post.objects.create(title="test1", body="test1", author=self.user, img=img_file)
+        post = Post.objects.get(title="test1")
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+        path = post.img.path
+
+        #delete the post
+        post.delete()
+
+        #check if the image was deleted
+        self.assertFalse(os.path.exists(path))
+
+    def test_post_img_update(self):
+        #create an image file
+        img_file = SimpleUploadedFile("test_update_1.jpg", b"file_content", content_type="image/jpeg")
+
+        #Create a post with the image
+        Post.objects.create(title="test1", body="test1", author=self.user, img=img_file)
+        post = Post.objects.get(title="test1")
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+        #create a new image file
+        img_file2 = SimpleUploadedFile("test_update_2.jpg", b"file_content", content_type="image/jpeg")
+
+        #update the post with the new image
+        post.img = img_file2
+        post.save()
+
+        #check if the image have the correct path
+        expected_path = f'uploads/images/{post.created_at.year}/{post.created_at.month}/{post.created_at.day}/test_update_2.jpg'
+        self.assertEqual(post.img.name, expected_path)
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+        #check if the old image was deleted
+        self.assertFalse(os.path.exists(post.img.path.replace("test_update_2.jpg", "test_update_1.jpg")))
+
+    def test_post_comments_count(self):
+        Post.objects.create(title="test1", body="test1", author=self.user)
+        post = Post.objects.get(title="test1")
+        Comment.objects.create(body="test1", author=self.user, post=post)
+        Comment.objects.create(body="test2", author=self.user, post=post)
+        Comment.objects.create(body="test3", author=self.user, post=post)
+        self.assertEqual(post.comments_count, 3)
 
 @pytest.mark.django_db
 class CommentTestCase(TestCase):

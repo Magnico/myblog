@@ -7,7 +7,7 @@ class PostSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     class Meta:
         model = Post
-        fields = ['title','body','author','created_at']
+        fields = ['title','body','author','created_at','img','safe','comments_count']
 
 class RelatedPostSerializer(serializers.ModelSerializer):
     class Meta:
