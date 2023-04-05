@@ -7,7 +7,7 @@ class PostSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     class Meta:
         model = Post
-        fields = ['title','body','author']
+        fields = ['title','body','author','created_at','img','safe','comments_count']
 
 class RelatedPostSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,7 +20,7 @@ class CommentSerializer(serializers.ModelSerializer):
     post = RelatedPostSerializer()
     class Meta:
         model = Comment
-        fields = ['body','author','post']
+        fields = ['body','author','post','created_at']
 
 class CommentPostSerializer(serializers.ModelSerializer):
     class Meta:

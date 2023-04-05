@@ -1,66 +1,146 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.utils import DataError, IntegrityError
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from .models import Post, Comment
 from django.db import transaction
+from dateutil.parser import parse
 from django.test import TestCase
+from django.conf import settings
 from django.urls import reverse
+import tempfile
 import pytest
+import shutil
+import os
 
 # Create your tests here.
 @pytest.mark.django_db
 class PostTestCase(TestCase):
 
+    def setUp(self):
+        User.objects.create_user(username="testuser", password="testpassword")
+        self.user = User.objects.get(username="testuser")
+        self.media_root = tempfile.mkdtemp()
+        settings.MEDIA_ROOT = self.media_root
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root)
+
     def test_post_character_limit(self):
-        testuser = User.objects.create_user(username="testing", password="testpassword")
         content = "x"*256
         title = "x"*101
         with self.assertRaises(DataError) as e:
             with transaction.atomic():
-                Post.objects.create(title=title, body='content', author=testuser).full_clean()
+                Post.objects.create(title=title, body='content', author=self.user).full_clean()
         with self.assertRaises(DataError) as e:
             with transaction.atomic():
-                Post.objects.create(title='title', body=content, author=testuser).full_clean()
+                Post.objects.create(title='title', body=content, author=self.user).full_clean()
 
     def test_post_null_fields(self):
-        testuser = User.objects.create_user(username="testing", password="testpassword")
-        
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 Post.objects.create(title=None, body=None,author=None).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Post.objects.create(title=None, body=None,author=testuser).full_clean()
+                Post.objects.create(title=None, body=None,author=self.user).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Post.objects.create(title="test1", body=None,author=testuser).full_clean()
+                Post.objects.create(title="test1", body=None,author=self.user).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Post.objects.create(title=None, body="test2",author=testuser).full_clean()
+                Post.objects.create(title=None, body="test2",author=self.user).full_clean()
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 Post.objects.create(title="test3", body="test3",author=None).full_clean()
 
     def test_post_empty_fields(self):
-        testuser = User.objects.create_user(username="testing", password="testpassword")
         
         with self.assertRaises(ValidationError):
-            Post.objects.create(title="", body="",author=testuser).full_clean()
+            Post.objects.create(title="", body="",author=self.user).full_clean()
 
         with self.assertRaises(ValidationError):
-            Post.objects.create(title="test1", body="",author=testuser).full_clean()
+            Post.objects.create(title="test1", body="",author=self.user).full_clean()
         
         with self.assertRaises(ValidationError):
-            Post.objects.create(title="", body="test2",author=testuser).full_clean()
+            Post.objects.create(title="", body="test2",author=self.user).full_clean()
 
     def test_post_user_delete(self):
-        user = User.objects.create_user(username="testuser", password="testpassword")
-        Post.objects.create(title="test1", body="test1", author=user)
-        Post.objects.create(title="test2", body="test2", author=user)
-        Post.objects.create(title="test3", body="test3", author=user)
-        user.delete()
+        Post.objects.create(title="test1", body="test1", author=self.user)
+        Post.objects.create(title="test2", body="test2", author=self.user)
+        Post.objects.create(title="test3", body="test3", author=self.user)
+        self.user.delete()
         self.assertEqual(Post.objects.count(), 0)
+    
+    def test_post_img_saved(self):
+        #create an image file
+        img_file = SimpleUploadedFile("test_img_save.jpg", b"file_content", content_type="image/jpeg")
+
+        #Create a post with the image
+        Post.objects.create(title="test1", body="test1", author=self.user, img=img_file)
+        post = Post.objects.get(title="test1")
+
+        #check if the image have the correct path
+        expected_path = f'uploads/images/{post.created_at.strftime("%Y/%m/%d")}/test_img_save.jpg'
+        self.assertEqual(post.img.name, expected_path)
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+    def test_post_img_delete(self):
+        #create an image file
+        img_file = SimpleUploadedFile("test_delete.jpg", b"file_content", content_type="image/jpeg")
+
+        #Create a post with the image
+        Post.objects.create(title="test1", body="test1", author=self.user, img=img_file)
+        post = Post.objects.get(title="test1")
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+        path = post.img.path
+
+        #delete the post
+        post.delete()
+
+        #check if the image was deleted
+        self.assertFalse(os.path.exists(path))
+
+    def test_post_img_update(self):
+        #create an image file
+        img_file = SimpleUploadedFile("test_update_1.jpg", b"file_content", content_type="image/jpeg")
+
+        #Create a post with the image
+        Post.objects.create(title="test1", body="test1", author=self.user, img=img_file)
+        post = Post.objects.get(title="test1")
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+        #create a new image file
+        img_file2 = SimpleUploadedFile("test_update_2.jpg", b"file_content", content_type="image/jpeg")
+
+        #update the post with the new image
+        post.img = img_file2
+        post.save()
+
+        #check if the image have the correct path
+        expected_path = f'uploads/images/{post.created_at.strftime("%Y/%m/%d")}/test_update_2.jpg'
+        self.assertEqual(post.img.name, expected_path)
+
+        #check if the image exists
+        self.assertTrue(os.path.exists(post.img.path))
+
+        #check if the old image was deleted
+        self.assertFalse(os.path.exists(post.img.path.replace("test_update_2.jpg", "test_update_1.jpg")))
+
+    def test_post_comments_count(self):
+        Post.objects.create(title="test1", body="test1", author=self.user)
+        post = Post.objects.get(title="test1")
+        Comment.objects.create(body="test1", author=self.user, post=post)
+        Comment.objects.create(body="test2", author=self.user, post=post)
+        Comment.objects.create(body="test3", author=self.user, post=post)
+        self.assertEqual(post.comments_count, 3)
 
 @pytest.mark.django_db
 class CommentTestCase(TestCase):
@@ -152,10 +232,17 @@ class UserLogSignTest(TestCase):
 
 @pytest.mark.django_db
 class PostAPITest(APITestCase):
+
     def setUp(self):
         User.objects.create_user(username="testuser", password="testpassword")
         Post.objects.create(title="test", body="test", author=User.objects.get(username="testuser"))
         self.user = User.objects.get(username="testuser")
+        self.user = User.objects.get(username="testuser")
+        self.media_root = tempfile.mkdtemp()
+        settings.MEDIA_ROOT = self.media_root
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root)
 
     def test_post_list(self):
         #Force authentication
@@ -192,7 +279,8 @@ class PostAPITest(APITestCase):
         #Getting the response from the API
         response = self.client.post(reverse('blog:post-list'),{
             'title': 'testing',
-            'body': 'testing'
+            'body': 'testing',
+            'safe': False,
         })
 
         #Checking if response is OK
@@ -203,13 +291,37 @@ class PostAPITest(APITestCase):
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
+        self.assertEqual(post.safe, response.data['safe'])
+        self.assertEqual(post.img.name,'')
+        self.assertIsNotNone(post.created_at)
     
     def test_post_retrieve(self):
         #Force authentication
         self.client.force_authenticate(user=self.user)
 
         #Getting the pk of the post
-        post = Post.objects.get();
+        post = Post.objects.first();
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+        
+        #Checking if the response is the same as the database
+        self.assertEqual(post.title, response.data['title'])
+        self.assertEqual(post.body, response.data['body'])
+        self.assertEqual(post.author.username, response.data['author'])
+        self.assertEqual(post.safe, response.data['safe'])
+        self.assertIsNone(response.data['img'])
+        self.assertEqual(post.created_at, parse(response.data['created_at']))
+        self.assertEqual(post.comments_count, response.data['comments_count'])
+
+        image = SimpleUploadedFile("test_retrieve.jpg", b'file_content', content_type="image/jpeg")
+
+        post.img = image
+        post.save()
+        post.refresh_from_db()
 
         #Getting the response from the API
         response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
@@ -217,22 +329,27 @@ class PostAPITest(APITestCase):
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
 
-        #Checking if the response is the same as the database
-        self.assertEqual(post.title, response.data['title'])
-        self.assertEqual(post.body, response.data['body'])
-        self.assertEqual(post.author.username, response.data['author'])
+        self.assertRegex(response.data['img'], fr'^http://testserver/{post.img.name}$')
     
     def test_post_patch(self):
         #Force authentication
         self.client.force_authenticate(user=self.user)
+        
+        image_path = os.path.join('blog',settings.STATIC_URL, 'images','test.png')
+        image = None
+        with open('blog/static/images/test.png','rb') as f:
+            image_data = f.read()
+            image = SimpleUploadedFile('test_patch.png', image_data, content_type='image/png')
 
         #Getting the pk of the post
-        post = Post.objects.get();
+        post = Post.objects.first();
 
         #Getting the response from the API
         response = self.client.patch(reverse('blog:post-detail', kwargs={'pk':post.pk}),{
             'title': 'testing',
-            'body': 'testing'
+            'body': 'testing',
+            'safe': False,
+            'img': image
         })
 
         #Checking if response is OK
@@ -243,6 +360,9 @@ class PostAPITest(APITestCase):
         self.assertEqual(post.title, response.data['title'])
         self.assertEqual(post.body, response.data['body'])
         self.assertEqual(post.author.username, response.data['author'])
+        self.assertEqual(post.safe, response.data['safe'])
+        self.assertRegex(response.data['img'], fr'^http://testserver/{post.img.name}$')
+        self.assertEqual(post.comments_count,response.data['comments_count'])
     
     def test_post_delete(self):
         #Force authentication
@@ -263,6 +383,7 @@ class PostAPITest(APITestCase):
 
 @pytest.mark.django_db
 class CommentAPITest(APITestCase):
+
     def setUp(self):
         User.objects.create_user(username="testuser", password="testpassword")
         self.user = User.objects.get(username="testuser")
@@ -327,10 +448,10 @@ class CommentAPITest(APITestCase):
 
         #Checking if response is OK
         self.assertEqual(response.status_code, 200)
-
         #Checking if the response is the same as the database
         self.assertEqual(self.comment.body, response.data['body'])
         self.assertEqual(self.comment.author.username, response.data['author'])
+        self.assertEqual(self.comment.created_at, parse(response.data['created_at']))
 
     def test_comment_patch(self):
         #Force authentication
