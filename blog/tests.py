@@ -539,20 +539,19 @@ class UserTagAPITest(APITestCase):
     def test_usertag_create(self):
         #Force authentication
         self.client.force_authenticate(user=self.users[0])
-
         #Getting the response from the API to create usertag
         response = self.client.post(reverse('blog:usertag-list'),{
             'user': self.users[1].pk,
             'post': self.posts[0].pk
         })
-
+        
         #Checking if response is OK
         self.assertEqual(response.status_code, 201)
 
         #Checking if the response is the same as the database
         usertag = UserTag.objects.get(user=self.users[1], post=self.posts[0])
-        self.assertEqual(usertag.user.username, response.data['user'])
-        self.assertEqual(usertag.post.pk, response.data['post']['pk'])
+        self.assertEqual(usertag.user.pk, response.data['user'])
+        self.assertEqual(usertag.post.pk, response.data['post'])
 
     def test_usertag_users(self):
         #Force authentication
@@ -583,4 +582,35 @@ class UserTagAPITest(APITestCase):
 
         #Checking if the response is the same as the database
         count = UserTag.objects.count()
+        self.assertEqual(count, response.data['count'])
+
+    def test_usertag_posts(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+        #Creating new usertags for the first post
+        UserTag.objects.create(user=self.users[1], post=self.posts[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-tagged-posts',kwargs={'pk':self.users[1].pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = UserTag.objects.filter(user=self.users[1]).count()
+        self.assertEqual(count, response.data['count'])
+
+        #Creating new usertags
+        UserTag.objects.create(user=self.users[1], post=self.posts[2])
+        UserTag.objects.create(user=self.users[1], post=self.posts[3])
+        UserTag.objects.create(user=self.users[1], post=self.posts[4])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-tagged-posts',kwargs={'pk':self.users[1].pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = UserTag.objects.filter(user=self.users[1]).count()
         self.assertEqual(count, response.data['count'])

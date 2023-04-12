@@ -30,9 +30,6 @@ class CommentPostSerializer(serializers.ModelSerializer):
         fields = ['body','author','post']
 
 class UserTagSerializer(serializers.ModelSerializer):
-    #user string related fields
-    user = serializers.StringRelatedField()
-    post = RelatedPostSerializer()
     class Meta:
         model = UserTag
         fields = ['user','post','created_at']

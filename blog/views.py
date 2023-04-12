@@ -3,8 +3,8 @@ from blog.api.serializers import PostSerializer, CommentSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
-from rest_framework.decorators import api_view
 from rest_framework.decorators import action
+from django.contrib.auth.models import User
 from .models import Post, Comment, UserTag
 from django.contrib.auth import logout
 from django.shortcuts import redirect
@@ -51,9 +51,9 @@ class PostViewSet(ModelViewSet):
     
     def get_queryset(self):
         if self.action == 'get_tagged_users':
-            return Post.objects.get(pk=self.kwargs['pk']).tagged_users.all()
+            return Post.objects.get(pk=self.kwargs['pk']).tagged_users.all().order_by('pk')
         elif self.action == 'get_tagged_posts':
-            return Post.objects.filter(tagged_users=self.request.user)
+            return Post.objects.filter(tagged_users__pk=self.kwargs['pk']).order_by('pk')
         return super().get_queryset()
     
     #/blog/api/post/tagged-users/pk
@@ -61,7 +61,7 @@ class PostViewSet(ModelViewSet):
     def get_tagged_users(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
     
-    @action(detail=False, methods=['get'], url_path='tagged-posts', url_name='tagged-posts')
+    @action(detail=False, methods=['get'], url_path='tagged-posts/(?P<pk>[^/.]+)', url_name='tagged-posts')
     def get_tagged_posts(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
 
