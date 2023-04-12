@@ -1,5 +1,5 @@
 from blog.api.serializers import CommentPostSerializer, UserTagSerializer, UserSerializer
-from blog.api.serializers import PostSerializer, CommentSerializer
+from blog.api.serializers import PostSerializer, CommentSerializer, RelatedPostSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
@@ -47,6 +47,8 @@ class PostViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'get_tagged_users':
             return UserSerializer
+        elif self.action == 'get_tagged_posts':
+            return RelatedPostSerializer
         return super().get_serializer_class()
     
     def get_queryset(self):
