@@ -10,6 +10,7 @@ app_name = 'blog'
 router = routers.DefaultRouter()
 router.register(r'api/post', views.PostViewSet, basename='post')
 router.register(r'api/comment', views.CommentViewSet, basename='comment')
+router.register(r'api/usertag', views.UserTagViewSet, basename='usertag')
 urlpatterns = [
     #/blog/
     path("", views.index, name='index'),
@@ -20,5 +21,7 @@ urlpatterns = [
     #/blog/logout
     path("logout", views.logOut, name='logout'),
     #/blog/api/post
+    #/blog/api/comment
     path('', include(router.urls)),
+
 ]

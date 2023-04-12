@@ -9,6 +9,15 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True,editable=False)
     img = models.ImageField(upload_to='uploads/images/%Y/%m/%d/',null=True,blank=True)
     safe = models.BooleanField(default=True)
+    tagged_users = models.ManyToManyField(User, through='UserTag', related_name='tagged_users')
+
+    @property
+    def tagged_count(self):
+        return self.tagged_users.count()
+    
+    @property
+    def last_tag_date(self):
+        return self.usertag_set.last().created_at if self.usertag_set.last() else None
 
     @property
     def comments_count(self):
@@ -39,3 +48,11 @@ class Comment(models.Model):
 
     def __str__(self):
         return self.body
+    
+class UserTag(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE, null=False)
+    post = models.ForeignKey(Post,on_delete=models.CASCADE, null=False)
+    created_at = models.DateTimeField(auto_now_add=True,editable=False)
+
+    def __str__(self):
+        return str(self.user.pk) + ' tagged to ' + str(self.post.pk)
