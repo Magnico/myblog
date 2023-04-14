@@ -3,7 +3,7 @@ from django.db.utils import DataError, IntegrityError
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
-from .models import Post, Comment
+from .models import Post, Comment, UserTag
 from django.db import transaction
 from dateutil.parser import parse
 from django.test import TestCase
@@ -55,7 +55,6 @@ class PostTestCase(TestCase):
                 Post.objects.create(title="test3", body="test3",author=None).full_clean()
 
     def test_post_empty_fields(self):
-        
         with self.assertRaises(ValidationError):
             Post.objects.create(title="", body="",author=self.user).full_clean()
 
@@ -141,6 +140,43 @@ class PostTestCase(TestCase):
         Comment.objects.create(body="test2", author=self.user, post=post)
         Comment.objects.create(body="test3", author=self.user, post=post)
         self.assertEqual(post.comments_count, 3)
+
+@pytest.mark.django_db
+class UserTagTestCase(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="testpassword")
+        self.users = [User.objects.create_user(username=f"test{i}", password="testpassword")
+                       for i in range(6)]
+        self.post = Post.objects.create(title="testpost", body="testpost", author=self.user)
+
+    def test_post_tagged_count(self):
+        #Check initial value of tagged_count
+        self.assertEqual(self.post.tagged_count, 0)
+
+        #Creating and tagging users
+        for user in self.users:
+            UserTag.objects.create(user=user, post=self.post)
+        
+        #Check if tagged_count is updated
+        self.assertEqual(self.post.tagged_count, 6)
+
+        #Delete a user
+        self.users[0].delete()
+
+        #Check if tagged_count is updated
+        self.assertEqual(self.post.tagged_count, 5)
+
+    def test_post_last_tag_date(self):
+        #Check initial value of last_tag_date
+        self.assertEqual(self.post.last_tag_date, None)
+
+        #Creating and tagging users
+        for user in self.users:
+            UserTag.objects.create(user=user, post=self.post)
+        
+        #Check if last_tag_date is updated
+        self.assertEqual(self.post.last_tag_date, self.post.usertag_set.last().created_at)
 
 @pytest.mark.django_db
 class CommentTestCase(TestCase):
@@ -294,7 +330,10 @@ class PostAPITest(APITestCase):
         self.assertEqual(post.safe, response.data['safe'])
         self.assertEqual(post.img.name,'')
         self.assertIsNotNone(post.created_at)
-    
+        self.assertIsNone(response.data['last_tag_date'])
+        self.assertEqual(post.comments_count, 0)
+        self.assertEqual(post.tagged_count, 0)
+
     def test_post_retrieve(self):
         #Force authentication
         self.client.force_authenticate(user=self.user)
@@ -316,6 +355,8 @@ class PostAPITest(APITestCase):
         self.assertIsNone(response.data['img'])
         self.assertEqual(post.created_at, parse(response.data['created_at']))
         self.assertEqual(post.comments_count, response.data['comments_count'])
+        self.assertEqual(post.tagged_count, response.data['tagged_count'])
+        self.assertEqual(post.last_tag_date, response.data['last_tag_date'])
 
         image = SimpleUploadedFile("test_retrieve.jpg", b'file_content', content_type="image/jpeg")
 
@@ -335,7 +376,7 @@ class PostAPITest(APITestCase):
         #Force authentication
         self.client.force_authenticate(user=self.user)
         
-        image_path = os.path.join('blog',settings.STATIC_URL, 'images','test.png')
+        #Creating a image
         image = None
         with open('blog/static/images/test.png','rb') as f:
             image_data = f.read()
@@ -483,3 +524,89 @@ class CommentAPITest(APITestCase):
         #Checking if the post is deleted
         count = Comment.objects.count()
         self.assertEqual(count, 0)
+
+@pytest.mark.django_db
+class UserTagAPITest(APITestCase):
+
+    def setUp(self):
+        self.users = [User.objects.create_user(username=f"testuser{i}", password="testpassword") for i in range(1,6) ]
+        self.posts = [Post.objects.create(title=f"test{i}", body=f"test{i}", author=self.users[i-1]) for i in range(1,6)]
+    
+    def test_usertag_create(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+        #Getting the response from the API to create usertag
+        response = self.client.post(reverse('blog:usertag-list'),{
+            'user': self.users[1].pk,
+            'post': self.posts[0].pk
+        })
+        
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 201)
+
+        #Checking if the response is the same as the database
+        usertag = UserTag.objects.get(user=self.users[1], post=self.posts[0])
+        self.assertEqual(usertag.user.pk, response.data['user'])
+        self.assertEqual(usertag.post.pk, response.data['post'])
+
+    def test_usertag_users(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+        #Creating new usertags for the first post
+        UserTag.objects.create(user=self.users[1], post=self.posts[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-tagged-users',kwargs={'pk':self.posts[0].pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = UserTag.objects.count()
+        self.assertEqual(count, response.data['count'])
+
+        #Creating new usertags
+        UserTag.objects.create(user=self.users[2], post=self.posts[0])
+        UserTag.objects.create(user=self.users[3], post=self.posts[0])
+        UserTag.objects.create(user=self.users[4], post=self.posts[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-tagged-users',kwargs={'pk':self.posts[0].pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = UserTag.objects.count()
+        self.assertEqual(count, response.data['count'])
+
+    def test_usertag_posts(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+        #Creating new usertags for the first post
+        UserTag.objects.create(user=self.users[1], post=self.posts[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-tagged-posts',kwargs={'pk':self.users[1].pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = UserTag.objects.filter(user=self.users[1]).count()
+        self.assertEqual(count, response.data['count'])
+
+        #Creating new usertags
+        UserTag.objects.create(user=self.users[1], post=self.posts[2])
+        UserTag.objects.create(user=self.users[1], post=self.posts[3])
+        UserTag.objects.create(user=self.users[1], post=self.posts[4])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-tagged-posts',kwargs={'pk':self.users[1].pk}))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = UserTag.objects.filter(user=self.users[1]).count()
+        self.assertEqual(count, response.data['count'])

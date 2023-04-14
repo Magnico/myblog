@@ -1,13 +1,18 @@
-from blog.api.serializers import PostSerializer, CommentSerializer, CommentPostSerializer
+from blog.api.serializers import CommentPostSerializer, UserTagSerializer, UserSerializer
+from blog.api.serializers import PostSerializer, CommentSerializer, RelatedPostSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
+from rest_framework.decorators import action
+from django.contrib.auth.models import User
+from .models import Post, Comment, UserTag
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.contrib import messages
-from .models import Post, Comment
+
+from rest_framework import status
 from .forms import SignUpForm
 
 
@@ -38,6 +43,29 @@ class PostViewSet(ModelViewSet):
                  
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+    
+    def get_serializer_class(self):
+        if self.action == 'get_tagged_users':
+            return UserSerializer
+        elif self.action == 'get_tagged_posts':
+            return RelatedPostSerializer
+        return super().get_serializer_class()
+    
+    def get_queryset(self):
+        if self.action == 'get_tagged_users':
+            return Post.objects.get(pk=self.kwargs['pk']).tagged_users.all().order_by('pk')
+        elif self.action == 'get_tagged_posts':
+            return Post.objects.filter(tagged_users__pk=self.kwargs['pk']).order_by('pk')
+        return super().get_queryset()
+    
+    #/blog/api/post/tagged-users/pk
+    @action(detail=False, methods=['get'], url_path='tagged-users/(?P<pk>[^/.]+)', url_name='tagged-users')
+    def get_tagged_users(self, *args, **kwargs):
+        return self.list(self.request, *args, **kwargs)
+    
+    @action(detail=False, methods=['get'], url_path='tagged-posts/(?P<pk>[^/.]+)', url_name='tagged-posts')
+    def get_tagged_posts(self, *args, **kwargs):
+        return self.list(self.request, *args, **kwargs)
 
 class CommentViewSet(ModelViewSet):
     queryset = Comment.objects.all().order_by('pk')
@@ -51,6 +79,11 @@ class CommentViewSet(ModelViewSet):
             return CommentPostSerializer
         return CommentSerializer
     
+class UserTagViewSet(ModelViewSet):
+    http_method_names = ['post']
+    queryset = UserTag.objects.all().order_by('pk')
+    serializer_class = UserTagSerializer
+    permission_classes = [IsAuthenticated]
 
 def signUp(request):
     if request.method == 'POST':
