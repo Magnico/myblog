@@ -63,7 +63,8 @@ class PostViewSet(ModelViewSet):
         return super().get_queryset()
     
     #/blog/api/post/tagged-users/pk
-    @action(detail=False, methods=['get'], url_path='tagged-users/(?P<pk>[^/.]+)', url_name='tagged-users')
+    #set to use no filter
+    @action(detail=False, methods=['get'], url_path='tagged-users/(?P<pk>[^/.]+)', url_name='tagged-users', filter_backends=[])
     def get_tagged_users(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
     
