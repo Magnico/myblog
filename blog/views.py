@@ -11,8 +11,7 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.contrib import messages
-
-from rest_framework import status
+from blog.filters import PostFilter
 from .forms import SignUpForm
 
 
@@ -40,6 +39,7 @@ class PostViewSet(ModelViewSet):
     queryset = Post.objects.all().order_by('pk')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
+    filterset_class = PostFilter
                  
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

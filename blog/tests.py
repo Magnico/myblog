@@ -610,3 +610,15 @@ class UserTagAPITest(APITestCase):
         #Checking if the response is the same as the database
         count = UserTag.objects.filter(user=self.users[1]).count()
         self.assertEqual(count, response.data['count'])
+
+@pytest.mark.django_db
+class PostFilteringAPITest(APITestCase):
+
+    def setUp(self):
+        names = ['John', 'Paul', 'George', 'Ringo', 'Pete']
+        body = lambda x: f"Este es el contenido del post{x}, del usuario {names[x%5]}"
+        title = lambda x: f"{names[x%5]} titulo"
+        
+        self.users = [User.objects.create_user(username=f"{names[i-1]}", password="testpassword") for i in range(5)]
+        self.posts = [Post.objects.create(title=title(i), body=body(i), author=self.users[0]) for i in range(15)]
+        print(len(self.users))
