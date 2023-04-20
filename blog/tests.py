@@ -9,6 +9,7 @@ from dateutil.parser import parse
 from django.test import TestCase
 from django.conf import settings
 from django.urls import reverse
+from django.db.models import Q
 import tempfile
 import pytest
 import shutil
@@ -610,3 +611,240 @@ class UserTagAPITest(APITestCase):
         #Checking if the response is the same as the database
         count = UserTag.objects.filter(user=self.users[1]).count()
         self.assertEqual(count, response.data['count'])
+
+@pytest.mark.django_db
+class PostFilteringAPITest(APITestCase):
+
+    def setUp(self):
+        names = ['Jeonah', 'Paul', 'George', 'Ringo', 'Lingo']
+        body = lambda x: f"Este es el contenido del post{x}, del usuario {names[x%5]}"
+        title = lambda x: f"{names[(x+1)%5]} titulo - {x}"
+
+        self.search = lambda x: Post.objects.filter(Q(title__icontains=x) | 
+                                    Q(body__icontains=x) | 
+                                    Q(author__username__icontains=x))
+        
+        self.users = [User.objects.create_user(username=f"{names[i]}", password="testpassword") for i in range(5)]
+        self.posts = [Post.objects.create(title=title(i), body=body(i), author=self.users[0],
+                                           safe=True if i%2==0 else False) for i in range(12)]
+    
+    def test_post_filter(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+
+
+        # FILTERING BY AUTHOR
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'user': self.users[0].username
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(author=self.users[0]).count()
+        self.assertEqual(count, response.data['count'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'user': self.users[4].username
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(author=self.users[4]).count()
+        self.assertEqual(count, response.data['count'])
+
+
+        # FILTERING BY SAFE
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'safe': True
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(safe=True).count()
+        self.assertEqual(count, response.data['count'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'safe': False
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(safe=False).count()
+        self.assertEqual(count, response.data['count'])
+
+
+        # FILTERING BY AUTHOR AND SAFE
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'user': self.users[0].username,
+            'safe': True
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(author=self.users[0], safe=True).count()
+        self.assertEqual(count, response.data['count'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'user': self.users[4].username,
+            'safe': False
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+        
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(author=self.users[4], safe=False).count()
+        self.assertEqual(count, response.data['count'])
+
+    def test_post_order(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'ordering': 'title'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = Post.objects.order_by('title')
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'ordering': '-safe'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = Post.objects.order_by('-safe')
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+    def test_post_search(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'search': 'ingo'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = self.search("ingo")
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'search': 'eo',
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = self.search("eo")
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'search': 'Paul',
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = self.search("Paul")
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+    def test_post_filter_order_search(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'search': 'ingo',
+            'ordering': 'title'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = self.search("ingo").order_by('title')
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'search': 'eo',
+            'ordering': '-safe'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = self.search("eo").order_by('-safe')
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'user': 'Jeonah',
+            'ordering': '-safe'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = Post.objects.filter(author__username='Jeonah').order_by('-safe')
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'user':'Paul',
+            'search': '1',
+            'ordering': '-title'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        posts = self.search("Paul").order_by('-title').filter(author__username='Paul')
+        for i in range(len(posts)):
+            self.assertEqual(posts[i].title, response.data['results'][i]['title'])

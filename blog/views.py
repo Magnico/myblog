@@ -1,18 +1,19 @@
+
 from blog.api.serializers import CommentPostSerializer, UserTagSerializer, UserSerializer
 from blog.api.serializers import PostSerializer, CommentSerializer, RelatedPostSerializer
+from rest_framework.filters import OrderingFilter, SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
 from rest_framework.decorators import action
-from django.contrib.auth.models import User
 from .models import Post, Comment, UserTag
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.contrib import messages
-
-from rest_framework import status
+from blog.filters import PostFilter
 from .forms import SignUpForm
 
 
@@ -40,6 +41,9 @@ class PostViewSet(ModelViewSet):
     queryset = Post.objects.all().order_by('pk')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['title', 'body', 'author__username']
+    filterset_class = PostFilter
                  
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -59,10 +63,12 @@ class PostViewSet(ModelViewSet):
         return super().get_queryset()
     
     #/blog/api/post/tagged-users/pk
-    @action(detail=False, methods=['get'], url_path='tagged-users/(?P<pk>[^/.]+)', url_name='tagged-users')
+    #set to use no filter
+    @action(detail=False, methods=['get'], url_path='tagged-users/(?P<pk>[^/.]+)', url_name='tagged-users', filter_backends=[])
     def get_tagged_users(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
     
+    #/blog/api/post/tagged-posts/pk
     @action(detail=False, methods=['get'], url_path='tagged-posts/(?P<pk>[^/.]+)', url_name='tagged-posts')
     def get_tagged_posts(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
