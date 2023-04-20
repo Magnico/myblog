@@ -1,9 +1,9 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.utils import DataError, IntegrityError
 from django.core.exceptions import ValidationError
+from .models import Post, Comment, UserTag, Like
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
-from .models import Post, Comment, UserTag
 from django.db import transaction
 from dateutil.parser import parse
 from django.test import TestCase
@@ -214,6 +214,33 @@ class CommentTestCase(TestCase):
         for comment in Comment.objects.all():
             self.assertEqual(comment.author, None)
          
+@pytest.mark.django_db
+class LikeTestCase(TestCase):
+    
+    def setUp(self):
+        self.user = [User.objects.create_user(username="testuser1", password="testpassword"),
+                   User.objects.create_user(username="testuser2", password="testpassword")]
+        self.post = Post.objects.create(title="test1", body="test1", author=self.user[0])
+        self.comment = Comment.objects.create(body="test1", author=self.user[0], post=self.post)
+    
+    def test_like_post(self):
+        Like.objects.create(user=self.user[0], content_object=self.post)
+        Like.objects.create(user=self.user[1], content_object=self.post)
+        self.assertEqual(self.post.likes.count(), 2)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Like.objects.create(user=self.user[0], content_object=self.post).full_clean()
+        
+        Like.objects.create(user=self.user[0], content_object=self.comment)
+        Like.objects.create(user=self.user[1], content_object=self.comment)
+        self.assertEqual(self.comment.likes.count(), 2)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Like.objects.create(user=self.user[0], content_object=self.comment).full_clean()
+
+
 @pytest.mark.django_db
 class UserLogSignTest(TestCase):
     def setUp(self):
