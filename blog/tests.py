@@ -240,7 +240,6 @@ class LikeTestCase(TestCase):
             with transaction.atomic():
                 Like.objects.create(user=self.user[0], content_object=self.comment).full_clean()
 
-
 @pytest.mark.django_db
 class UserLogSignTest(TestCase):
     def setUp(self):
@@ -875,3 +874,111 @@ class PostFilteringAPITest(APITestCase):
         posts = self.search("Paul").order_by('-title').filter(author__username='Paul')
         for i in range(len(posts)):
             self.assertEqual(posts[i].title, response.data['results'][i]['title'])
+
+class LikeAPITest(APITestCase):
+
+    def setUp(self):
+        self.users = [User.objects.create_user(username='testuser1', password='testpassword'),
+                      User.objects.create_user(username='testuser2', password='testpassword')]
+        self.posts = [Post.objects.create(title='testpost1', body="test1", author=self.users[0]),
+                        Post.objects.create(title='testpost2', body="test2", author=self.users[1])]
+        self.comments = [Comment.objects.create(body="testcomment1", author=self.users[1], post=self.posts[0]),
+                        Comment.objects.create(body="testcomment2", author=self.users[0], post=self.posts[1])]
+    
+    def test_like_post(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+
+        #Getting the response from the API for liking a post
+        response = self.client.post(reverse('blog:post-like', args=[self.posts[1].pk]))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        count = Post.objects.get(pk=self.posts[1].pk).likes.count()
+
+        #Checking if the response is the same as the database
+        self.assertEqual(count, 1)
+
+        #Getting the response from the API for liking a post
+        response = self.client.post(reverse('blog:post-like', args=[self.posts[0].pk]))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        count = Post.objects.get(pk=self.posts[0].pk).likes.count()
+
+        #Checking if the response is the same as the database
+        self.assertEqual(count, 1)
+
+        #Getting the total count of likes
+        count = Like.objects.all().count()
+
+        #Checking if the response matches the database
+        self.assertEqual(count, 2)
+
+        #Getting the response from the API for unliking a post
+        response = self.client.post(reverse('blog:post-like', args=[self.posts[0].pk]))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        count = Post.objects.get(pk=self.posts[0].pk).likes.count()
+
+        #Checking if the response is the same as the database
+        self.assertEqual(count, 0)
+
+        #Getting the total count of likes
+        count = Like.objects.all().count()
+
+        #Checking if the response matches the database
+        self.assertEqual(count, 1)
+
+    def test_like_comment(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[1])
+
+        #Getting the response from the API for liking a comment
+        response = self.client.post(reverse('blog:comment-like', args=[self.comments[0].pk]))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        count = Comment.objects.get(pk=self.comments[0].pk).likes.count()
+
+        #Checking if the response is the same as the database
+        self.assertEqual(count, 1)
+
+        #Getting the response from the API for liking a comment
+        response = self.client.post(reverse('blog:comment-like', args=[self.comments[1].pk]))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        count = Comment.objects.get(pk=self.comments[1].pk).likes.count()
+
+        #Checking if the response is the same as the database
+        self.assertEqual(count, 1)
+
+        #Getting the total count of likes
+        count = Like.objects.all().count()
+
+        #Checking if the response matches the database
+        self.assertEqual(count, 2)
+
+        #Getting the response from the API for unliking a comment
+        response = self.client.post(reverse('blog:comment-like', args=[self.comments[0].pk]))
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        count = Comment.objects.get(pk=self.comments[0].pk).likes.count()
+
+        #Checking if the response is the same as the database
+        self.assertEqual(count, 0)
+
+        #Getting the total count of likes
+        count = Like.objects.all().count()
+
+        #Checking if the response matches the database
+        self.assertEqual(count, 1)

@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
 from rest_framework.decorators import action
+from rest_framework.response import Response
 from .models import Post, Comment, UserTag
 from django.contrib.auth import logout
 from django.shortcuts import redirect
@@ -72,6 +73,23 @@ class PostViewSet(ModelViewSet):
     @action(detail=False, methods=['get'], url_path='tagged-posts/(?P<pk>[^/.]+)', url_name='tagged-posts')
     def get_tagged_posts(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
+    
+    #/blog/api/post/pk/like
+    @action(detail=True, methods=['post'], url_path='like', url_name='like')
+    def post_like_post(self, *args, **kwargs):
+        post = self.get_object()
+        print(post)
+        status = "liked"
+        print("post")
+        print(post.pk, self.request.user.pk)
+        print(Like.objects.filter(user=self.request.user.pk,content_object=post).count())
+        if post.likes.filter(pk=self.request.user.pk).count() > 0:
+            post.likes.get(pk=self.request.user.pk).delete()
+            status = "unliked"
+        else:
+            post.likes.create(user=self.request.user)
+        post.save()
+        return Response({'status':status})
 
 class CommentViewSet(ModelViewSet):
     queryset = Comment.objects.all().order_by('pk')
@@ -84,6 +102,23 @@ class CommentViewSet(ModelViewSet):
         if self.request.method == 'POST':
             return CommentPostSerializer
         return CommentSerializer
+    
+    #/blog/api/comment/pk/like
+    @action(detail=True, methods=['post'], url_path='like', url_name='like')
+    def post_like_comment(self, *args, **kwargs):
+        comment = self.get_object()
+        print(comment)
+        status = "liked"
+        print("comment")
+        print(comment.pk, self.request.user.pk)
+        print(comment.likes.filter(pk=self.request.user.pk).count())
+        if comment.likes.filter(pk=self.request.user.pk).count() > 0:
+            comment.likes.get(pk=self.request.user.pk).delete()
+            status = "unliked"
+        else:
+            comment.likes.create(user=self.request.user)
+        comment.save()
+        return Response({'status':status})
     
 class UserTagViewSet(ModelViewSet):
     http_method_names = ['post']
