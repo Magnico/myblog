@@ -24,6 +24,19 @@ def index(request):
         "posts": Post.objects.all().count(),
     })
 
+class LikeModelMixin:
+    @action(detail=True, methods=['post'], url_path='like', url_name='like')
+    def post_like(self, *args, **kwargs):
+        obj = self.get_object()
+        status = "liked"
+        if obj.likes.filter(user=self.request.user).count() > 0:
+            obj.likes.get(user=self.request.user).delete()
+            status = "unliked"
+        else:
+            obj.likes.create(user=self.request.user)
+        obj.save()
+        return Response({'status':status})
+
 
 class MyLoginView(LoginView):
     template_name = 'blog/base_form.html'
@@ -38,7 +51,7 @@ class MyLoginView(LoginView):
         return context
 
 
-class PostViewSet(ModelViewSet):
+class PostViewSet(ModelViewSet, LikeModelMixin):
     queryset = Post.objects.all().order_by('pk')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
@@ -64,7 +77,6 @@ class PostViewSet(ModelViewSet):
         return super().get_queryset()
     
     #/blog/api/post/tagged-users/pk
-    #set to use no filter
     @action(detail=False, methods=['get'], url_path='tagged-users/(?P<pk>[^/.]+)', url_name='tagged-users', filter_backends=[])
     def get_tagged_users(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
@@ -73,21 +85,8 @@ class PostViewSet(ModelViewSet):
     @action(detail=False, methods=['get'], url_path='tagged-posts/(?P<pk>[^/.]+)', url_name='tagged-posts')
     def get_tagged_posts(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
-    
-    #/blog/api/post/pk/like
-    @action(detail=True, methods=['post'], url_path='like', url_name='like')
-    def post_like_post(self, *args, **kwargs):
-        post = self.get_object()
-        status = "liked"
-        if post.likes.filter(user=self.request.user).count() > 0:
-            post.likes.get(user=self.request.user).delete()
-            status = "unliked"
-        else:
-            post.likes.create(user=self.request.user)
-        post.save()
-        return Response({'status':status})
 
-class CommentViewSet(ModelViewSet):
+class CommentViewSet(ModelViewSet, LikeModelMixin):
     queryset = Comment.objects.all().order_by('pk')
     permission_classes = [IsAuthenticated]
                  
@@ -99,18 +98,6 @@ class CommentViewSet(ModelViewSet):
             return CommentPostSerializer
         return CommentSerializer
     
-    #/blog/api/comment/pk/like
-    @action(detail=True, methods=['post'], url_path='like', url_name='like')
-    def post_like_comment(self, *args, **kwargs):
-        comment = self.get_object()
-        status = "liked"
-        if comment.likes.filter(user=self.request.user).count() > 0:
-            comment.likes.get(user=self.request.user).delete()
-            status = "unliked"
-        else:
-            comment.likes.create(user=self.request.user)
-        comment.save()
-        return Response({'status':status})
     
 class UserTagViewSet(ModelViewSet):
     http_method_names = ['post']
