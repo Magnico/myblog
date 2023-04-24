@@ -1,7 +1,22 @@
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import User
 from django.db import models
 
 # Create your models here.
+class Like(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE, null=False)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    created_at = models.DateTimeField(auto_now_add=True,editable=False)
+
+    def __str__(self):
+        return str(self.user.pk) + ' liked ' + str(self.content_object)
+
+    class Meta:
+        unique_together = ('user', 'content_type', 'object_id')
+
 class Post(models.Model):
     title = models.CharField(max_length=100,null=False,blank=False)
     body = models.CharField(max_length=255,null=False,blank=False)
@@ -10,6 +25,7 @@ class Post(models.Model):
     img = models.ImageField(upload_to='uploads/images/%Y/%m/%d/',null=True,blank=True)
     safe = models.BooleanField(default=True)
     tagged_users = models.ManyToManyField(User, through='UserTag', related_name='tagged_users')
+    likes = GenericRelation(Like)
 
     @property
     def tagged_count(self):
@@ -45,6 +61,7 @@ class Comment(models.Model):
     author = models.ForeignKey(User,on_delete=models.SET_NULL, null=True)
     post = models.ForeignKey(Post,on_delete=models.CASCADE, null=False)
     created_at = models.DateTimeField(auto_now_add=True,editable=False)
+    likes = GenericRelation(Like)
 
     def __str__(self):
         return self.body

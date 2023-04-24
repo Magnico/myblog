@@ -7,7 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
 from rest_framework.decorators import action
-from .models import Post, Comment, UserTag
+from rest_framework.response import Response
+from .models import Post, Comment, UserTag, Like
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -23,6 +24,19 @@ def index(request):
         "posts": Post.objects.all().count(),
     })
 
+class LikeModelMixin:
+    @action(detail=True, methods=['post'], url_path='like', url_name='like')
+    def post_like(self, *args, **kwargs):
+        obj = self.get_object()
+        status = "liked"
+        if obj.likes.filter(user=self.request.user).count() > 0:
+            obj.likes.get(user=self.request.user).delete()
+            status = "unliked"
+        else:
+            obj.likes.create(user=self.request.user)
+        obj.save()
+        return Response({'status':status})
+
 
 class MyLoginView(LoginView):
     template_name = 'blog/base_form.html'
@@ -37,7 +51,7 @@ class MyLoginView(LoginView):
         return context
 
 
-class PostViewSet(ModelViewSet):
+class PostViewSet(ModelViewSet, LikeModelMixin):
     queryset = Post.objects.all().order_by('pk')
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
@@ -63,7 +77,6 @@ class PostViewSet(ModelViewSet):
         return super().get_queryset()
     
     #/blog/api/post/tagged-users/pk
-    #set to use no filter
     @action(detail=False, methods=['get'], url_path='tagged-users/(?P<pk>[^/.]+)', url_name='tagged-users', filter_backends=[])
     def get_tagged_users(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
@@ -73,7 +86,7 @@ class PostViewSet(ModelViewSet):
     def get_tagged_posts(self, *args, **kwargs):
         return self.list(self.request, *args, **kwargs)
 
-class CommentViewSet(ModelViewSet):
+class CommentViewSet(ModelViewSet, LikeModelMixin):
     queryset = Comment.objects.all().order_by('pk')
     permission_classes = [IsAuthenticated]
                  
@@ -84,6 +97,7 @@ class CommentViewSet(ModelViewSet):
         if self.request.method == 'POST':
             return CommentPostSerializer
         return CommentSerializer
+    
     
 class UserTagViewSet(ModelViewSet):
     http_method_names = ['post']
