@@ -29,15 +29,26 @@ ALLOWED_HOSTS = ['127.0.0.1']
 
 
 # Application definition
-
-INSTALLED_APPS = [
+DJANGO_APPS =[
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'django_filters',
 ]
+
+THIRD_APPS=[
+
+]
+
+LOCAL_APPS=[
+    "blog.apps.BlogConfig"
+]
+
+INSTALLED_APPS = THIRD_APPS + LOCAL_APPS + DJANGO_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -80,7 +91,6 @@ DATABASES = {
 	'USER': 'bloguser',
 	'PASSWORD': 'bloguserpassword',
 	'HOST': 'localhost',
-	'PORT': '',
     }
 }
 
@@ -125,3 +135,19 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGIN_REDIRECT_URL = 'blog:index'
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 42,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ],
+}
