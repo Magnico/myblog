@@ -4,17 +4,17 @@ from blog.api.serializers import PostSerializer, CommentSerializer, RelatedPostS
 from rest_framework.filters import OrderingFilter, SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated
+from blog.filters import PostFilter, CommentFilter
 from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth.views import LoginView
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Post, Comment, UserTag, Like
+from .models import Post, Comment, UserTag
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.contrib import messages
-from blog.filters import PostFilter
 from .forms import SignUpForm
 
 
@@ -89,6 +89,8 @@ class PostViewSet(ModelViewSet, LikeModelMixin):
 class CommentViewSet(ModelViewSet, LikeModelMixin):
     queryset = Comment.objects.all().order_by('pk')
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = CommentFilter
                  
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

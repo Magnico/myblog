@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from .models import Post, Comment, UserTag, Like
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
+from freezegun import freeze_time
 from django.db import transaction
 from dateutil.parser import parse
 from django.test import TestCase
@@ -651,10 +652,13 @@ class PostFilteringAPITest(APITestCase):
                                     Q(author__username__icontains=x))
         
         self.users = [User.objects.create_user(username=f"{names[i]}", password="testpassword") for i in range(5)]
-        self.posts = [Post.objects.create(title=title(i), body=body(i), author=self.users[0],
-                                           safe=True if i%2==0 else False) for i in range(12)]
-    
-    def test_post_filter(self):
+        self.posts = []
+        for i in range(12):
+            with freeze_time(f"{2000+i}-01-01 11:00:00"):
+                self.posts.append(Post.objects.create(title=title(i), body=body(i), author=self.users[0],
+                                           safe=True if i%2==0 else False))
+        
+    def test_post_filter_author_safe(self):
         #Force authentication
         self.client.force_authenticate(user=self.users[0])
 
@@ -739,6 +743,50 @@ class PostFilteringAPITest(APITestCase):
         
         #Checking if the response is the same as the database
         count = Post.objects.filter(author=self.users[4], safe=False).count()
+        self.assertEqual(count, response.data['count'])
+
+    def test_post_filter_date_range(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'created_at_after': '2005-01-01',
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(created_at__gte='2005-01-01').count()
+
+        self.assertEqual(count, response.data['count'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'created_at_before': '2005-01-01',
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(created_at__lte='2005-01-01').count()
+
+        self.assertEqual(count, response.data['count'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:post-list'),{
+            'created_at_after': '2005-01-01',
+            'created_at_before': '2007-01-01'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Post.objects.filter(created_at__gte='2005-01-01', created_at__lte='2007-01-01').count()
+
         self.assertEqual(count, response.data['count'])
 
     def test_post_order(self):
@@ -875,6 +923,65 @@ class PostFilteringAPITest(APITestCase):
         for i in range(len(posts)):
             self.assertEqual(posts[i].title, response.data['results'][i]['title'])
 
+
+@pytest.mark.django_db
+class CommentFilteringAPITest(APITestCase):
+
+    def setUp(self):
+        names = ['Jeonah', 'Paul', 'George', 'Ringo', 'Lingo']
+        self.users = [User.objects.create_user(username=f"{names[i]}", password="testpassword") for i in range(5)]
+        self.post = Post.objects.create(title="test", body="test", author=self.users[0])
+        self.comments = []
+        for i in range(12):
+            with freeze_time(f"{2000+i}-01-01 11:00:00"):
+                self.comments.append(Comment.objects.create(body=f"comment{i}", post=self.post, author=self.users[i%5]))
+    
+    def test_comment_filter_date_range(self):
+        #Force authentication
+        self.client.force_authenticate(user=self.users[0])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:comment-list'),{
+            'created_at_after': '2005-01-01',
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Comment.objects.filter(created_at__gte='2005-01-01').count()
+
+        self.assertEqual(count, response.data['count'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:comment-list'),{
+            'created_at_before': '2005-01-01',
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Comment.objects.filter(created_at__lte='2005-01-01').count()
+
+        self.assertEqual(count, response.data['count'])
+
+        #Getting the response from the API
+        response = self.client.get(reverse('blog:comment-list'),{
+            'created_at_after': '2005-01-01',
+            'created_at_before': '2007-01-01'
+        })
+
+        #Checking if response is OK
+        self.assertEqual(response.status_code, 200)
+
+        #Checking if the response is the same as the database
+        count = Comment.objects.filter(created_at__gte='2005-01-01', created_at__lte='2007-01-01').count()
+
+
+        self.assertEqual(count, response.data['count'])
+
+@pytest.mark.django_db
 class LikeAPITest(APITestCase):
 
     def setUp(self):

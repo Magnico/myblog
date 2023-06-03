@@ -4,6 +4,7 @@ Django==4.1.7
 django-filter==22.1
 djangorestframework==3.14.0
 exceptiongroup==1.1.0
+freezegun==1.2.2
 iniconfig==2.0.0
 Markdown==3.4.2
 packaging==23.0
