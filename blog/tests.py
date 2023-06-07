@@ -11,9 +11,11 @@ from django.test import TestCase
 from django.conf import settings
 from django.urls import reverse
 from django.db.models import Q
+from unittest import mock
 import tempfile
 import pytest
 import shutil
+import redis
 import os
 
 # Create your tests here.
@@ -369,36 +371,40 @@ class PostAPITest(APITestCase):
         #Getting the pk of the post
         post = Post.objects.first();
 
-        #Getting the response from the API
-        response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
+        with mock.patch('redis.Redis') as mock_redis:
+            mock_redis_instance = mock_redis.return_value
+            mock_redis_instance.get.return_value = 9
+            #Getting the response from the API
+            response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
 
-        #Checking if response is OK
-        self.assertEqual(response.status_code, 200)
-        
-        #Checking if the response is the same as the database
-        self.assertEqual(post.title, response.data['title'])
-        self.assertEqual(post.body, response.data['body'])
-        self.assertEqual(post.author.username, response.data['author'])
-        self.assertEqual(post.safe, response.data['safe'])
-        self.assertIsNone(response.data['img'])
-        self.assertEqual(post.created_at, parse(response.data['created_at']))
-        self.assertEqual(post.comments_count, response.data['comments_count'])
-        self.assertEqual(post.tagged_count, response.data['tagged_count'])
-        self.assertEqual(post.last_tag_date, response.data['last_tag_date'])
+            #Checking if response is OK
+            self.assertEqual(response.status_code, 200)
+            
+            #Checking if the response is the same as the database
+            self.assertEqual(post.title, response.data['title'])
+            self.assertEqual(post.body, response.data['body'])
+            self.assertEqual(post.author.username, response.data['author'])
+            self.assertEqual(post.safe, response.data['safe'])
+            self.assertIsNone(response.data['img'])
+            self.assertEqual(post.created_at, parse(response.data['created_at']))
+            self.assertEqual(post.comments_count, response.data['comments_count'])
+            self.assertEqual(post.tagged_count, response.data['tagged_count'])
+            self.assertEqual(post.last_tag_date, response.data['last_tag_date'])
+            self.assertEqual(9, response.data['visits_count'])
 
-        image = SimpleUploadedFile("test_retrieve.jpg", b'file_content', content_type="image/jpeg")
+            image = SimpleUploadedFile("test_retrieve.jpg", b'file_content', content_type="image/jpeg")
 
-        post.img = image
-        post.save()
-        post.refresh_from_db()
+            post.img = image
+            post.save()
+            post.refresh_from_db()
 
-        #Getting the response from the API
-        response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
+            #Getting the response from the API
+            response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
 
-        #Checking if response is OK
-        self.assertEqual(response.status_code, 200)
+            #Checking if response is OK
+            self.assertEqual(response.status_code, 200)
 
-        self.assertRegex(response.data['img'], fr'^http://testserver/{post.img.name}$')
+            self.assertRegex(response.data['img'], fr'^http://testserver/{post.img.name}$')
     
     def test_post_patch(self):
         #Force authentication
@@ -922,7 +928,6 @@ class PostFilteringAPITest(APITestCase):
         posts = self.search("Paul").order_by('-title').filter(author__username='Paul')
         for i in range(len(posts)):
             self.assertEqual(posts[i].title, response.data['results'][i]['title'])
-
 
 @pytest.mark.django_db
 class CommentFilteringAPITest(APITestCase):
