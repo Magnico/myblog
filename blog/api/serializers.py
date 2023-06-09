@@ -1,8 +1,7 @@
 from blog.models import Post , Comment, UserTag
+from blog.utils import get_redis_connection
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from django.conf import settings
-import redis
 
 class PostSerializer(serializers.ModelSerializer):
     #user string related fields
@@ -15,7 +14,7 @@ class PostSerializer(serializers.ModelSerializer):
                   'tagged_count','last_tag_date','visits_count']
     
     def get_visits_count(self, obj):
-        redis_c = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+        redis_c = get_redis_connection()
         visits = redis_c.get(f'post:{obj.pk}:visits')
         return int(visits) if visits else 0
 

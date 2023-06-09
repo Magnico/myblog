@@ -15,7 +15,7 @@ from unittest import mock
 import tempfile
 import pytest
 import shutil
-import redis
+from blog.utils import get_redis_connection
 import os
 
 # Create your tests here.
@@ -374,8 +374,11 @@ class PostAPITest(APITestCase):
         with mock.patch('redis.Redis') as mock_redis:
             mock_redis_instance = mock_redis.return_value
             mock_redis_instance.get.return_value = 9
+            
             #Getting the response from the API
             response = self.client.get(reverse('blog:post-detail', kwargs={'pk':post.pk}))
+
+            mock_redis_instance.incr.assert_called_once_with(f'post:{post.pk}:visits')
 
             #Checking if response is OK
             self.assertEqual(response.status_code, 200)
@@ -419,25 +422,30 @@ class PostAPITest(APITestCase):
         #Getting the pk of the post
         post = Post.objects.first();
 
-        #Getting the response from the API
-        response = self.client.patch(reverse('blog:post-detail', kwargs={'pk':post.pk}),{
-            'title': 'testing',
-            'body': 'testing',
-            'safe': False,
-            'img': image
-        })
+        with mock.patch('redis.Redis') as mock_redis:
+            mock_redis_instance = mock_redis.return_value
 
-        #Checking if response is OK
-        self.assertEqual(response.status_code, 200)
+            #Getting the response from the API
+            response = self.client.patch(reverse('blog:post-detail', kwargs={'pk':post.pk}),{
+                'title': 'testing',
+                'body': 'testing',
+                'safe': False,
+                'img': image
+            })
 
-        #Checking if the response is the same as the databaset
-        post = Post.objects.get(pk=post.pk);
-        self.assertEqual(post.title, response.data['title'])
-        self.assertEqual(post.body, response.data['body'])
-        self.assertEqual(post.author.username, response.data['author'])
-        self.assertEqual(post.safe, response.data['safe'])
-        self.assertRegex(response.data['img'], fr'^http://testserver/{post.img.name}$')
-        self.assertEqual(post.comments_count,response.data['comments_count'])
+            mock_redis_instance.incr.assert_not_called()
+            
+            #Checking if response is OK
+            self.assertEqual(response.status_code, 200)
+
+            #Checking if the response is the same as the databaset
+            post = Post.objects.get(pk=post.pk);
+            self.assertEqual(post.title, response.data['title'])
+            self.assertEqual(post.body, response.data['body'])
+            self.assertEqual(post.author.username, response.data['author'])
+            self.assertEqual(post.safe, response.data['safe'])
+            self.assertRegex(response.data['img'], fr'^http://testserver/{post.img.name}$')
+            self.assertEqual(post.comments_count,response.data['comments_count'])
     
     def test_post_delete(self):
         #Force authentication
