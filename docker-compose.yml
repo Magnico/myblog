@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  myblog:
+    container_name: myblog_container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DJANGO_SETTINGS_MODULE=myblog.docker_settings
+    command: /app/docker-entrypoint.sh
+  redis:
+    restart: always
+    image: redis:latest
+    expose:
+      - "6379"
+
+  db:
+    restart: always
+    image: postgres
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_DB=myblogdb
+      - POSTGRES_USER=bloguser
+      - POSTGRES_PASSWORD=bloguserpassword
